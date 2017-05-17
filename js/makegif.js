@@ -65,4 +65,6 @@ function makeGIF() {
         redraw();
 
   	unitTesting = false;
+
+        inputHistory = inputDat;
 }
