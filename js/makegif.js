@@ -2,16 +2,8 @@ function makeGIF() {
 	var randomseed = RandomGen.seed;
 	levelEditorOpened=false;
 	var targetlevel=curlevel;
-	var gifcanvas = document.createElement('canvas');
-	gifcanvas.width=screenwidth*cellwidth;
-	gifcanvas.height=screenheight*cellheight;
-	gifcanvas.style.width=screenwidth*cellwidth;
-	gifcanvas.style.height=screenheight*cellheight;
-
-	var gifctx = gifcanvas.getContext('2d');
 
 	var inputDat = inputHistory.concat([]);
-	
 
 	unitTesting=true;
 	levelString=compiledText;
@@ -25,9 +17,16 @@ function makeGIF() {
 
 	compile(["loadLevel",curlevel],levelString,randomseed);
 	canvasResize();
-	redraw();
-	gifctx.drawImage(canvas,-xoffset,-yoffset);
-  	encoder.addFrame(gifctx);
+        gifDataResize();
+
+        encoder.setSize(trueGIFWidth, trueGIFHeight);
+
+        regenGIFText();
+        regenGIFSpriteImages();
+
+	gifRedraw();
+
+  	encoder.addFrame(gifDataToImageData(), true);
 	var autotimer=0;
 
   	for(var i=0;i<inputDat.length;i++) {
@@ -37,30 +36,30 @@ function makeGIF() {
 			DoUndo(false,true);
 		} else if (val==="restart") {
 			DoRestart();
-		} else if (val=="tick") {			
+		} else if (val=="tick") {
 			processInput(-1);
 			realtimeframe=true;
 		} else {
 			processInput(val);
 		}
-		redraw();
-		gifctx.drawImage(canvas,-xoffset,-yoffset);
-		encoder.addFrame(gifctx);
+		gifRedraw();
+                encoder.addFrame(gifDataToImageData(), true);
 		encoder.setDelay(realtimeframe?autotickinterval:repeatinterval);
 		autotimer+=repeatinterval;
 
 		while (againing) {
-			processInput(-1);		
-			redraw();
+			processInput(-1);
+			gifRedraw();
 			encoder.setDelay(againinterval);
-			gifctx.drawImage(canvas,-xoffset,-yoffset);
-	  		encoder.addFrame(gifctx);	
+                        encoder.addFrame(gifDataToImageData(), true);
 		}
 	}
 
   	encoder.finish();
   	var dat = 'data:image/gif;base64,'+encode64(encoder.stream().getData());
   	window.open(dat);
-  	
+
+        redraw();
+
   	unitTesting = false;
 }
