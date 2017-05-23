@@ -1,5 +1,19 @@
-function colorHexToInt(color) {
-    return parseInt(color.substring(1,7), 16);
+function colorHexToRGB(color) {
+    var iVal = parseInt(color.substring(1,7), 16);
+    return [((iVal >>> 16) & 255), ((iVal >>> 8) & 255), (iVal & 255)];
+}
+
+function colorLookupInTable(colorIn) {
+    var color = colorIn.toLowerCase();
+    if (color == "transparent")
+        return -1;
+    var pos = gifColorTabHex.indexOf(color);
+    if (pos == -1) {
+        gifColorTab = gifColorTab.concat(colorHexToRGB(color));
+        pos = gifColorTabHex.length;
+        gifColorTabHex.push(color);
+    }
+    return pos;
 }
 
 function createGIFSprite(spritegrid, colors, padding) {
@@ -12,7 +26,7 @@ function createGIFSprite(spritegrid, colors, padding) {
     var tw = w + (padding|0);
     var th = h + (padding|0);
     var sprite = Array(tw * th).fill(-1);
-    var numericColors = colors.map(colorHexToInt);
+    var numericColors = colors.map(colorLookupInTable);
 
     for (var j = 0; j < w; j++) {
         for (var k = 0; k < h; k++) {
@@ -27,6 +41,11 @@ function createGIFSprite(spritegrid, colors, padding) {
     return sprite;
 }
 
+function resetGIFColorTables() {
+    gifColorTab = [];
+    gifColorTabHex = [];
+}
+
 function regenGIFText() {
 	gifTextImages={};
 
@@ -38,6 +57,8 @@ function regenGIFText() {
 }
 
 var gifSpriteImages;
+var gifColorTab;
+var gifColorTabHex;
 
 function regenGIFSpriteImages() {
 
@@ -86,35 +107,14 @@ function gifDataResize() {
 
     trueGIFWidth = gifDataWidth * gifScale;
     trueGIFHeight = gifDataHeight * gifScale;
-}
 
-function colorIntToRGBA(color) {
-    return [((color >>> 16) & 255), ((color >>> 8) & 255), (color & 255), 255];
-}
-
-function gifReplicateValue(n, val) {
-    return Array(n).fill(val);
-}
-
-/*function gifDataToImageData() {
-    var res = [];
-    var replicateFn = gifReplicateValue.bind(null, gifScale);
-    var clearAt = -1;
-    if ("scanline" in state.metadata) {
-        clearAt = (gifScale / 2) | 0;
+    if (forceRegenGIFImages) {
+        resetGIFColorTables();
+        regenGIFText();
+        regenGIFSpriteImages();
+        forceRegenGIFImages = false;
     }
-    for (var i = 0; i < gifDataHeight; i++) {
-        var row = [].concat.apply([], gifData.slice(i*gifDataWidth,
-                                                    (i+1)*gifDataWidth).map(replicateFn));
-        for (var j = 0; j < gifScale; j++) {
-            if (j == clearAt) {
-                row.fill(0);
-            }
-            res = res.concat(row);
-        }
-    }
-    return [].concat.apply([], res.map(colorIntToRGBA));
-    }*/
+}
 
 function gifDataToImageData() {
     var res = new Uint8Array(trueGIFWidth * trueGIFHeight * 4);
@@ -126,15 +126,36 @@ function gifDataToImageData() {
     for (var i = 0; i < gifDataWidth; i++) {
         for (var j = 0; j < gifDataHeight; j++) {
             var color = gifData[i+j*gifDataWidth];
-            var red = (color >>> 16) & 255;
-            var green = (color >>> 8) & 255;
-            var blue = color & 255;
+            var red = gifColorTab[3*color];
+            var green = gifColorTab[3*color+1];
+            var blue = gifColorTab[3*color+2];
             for (var k = 0; k < gifScale; k++) {
                 for (var l = 0; l < vHt; l++) {
                     var elt = 4 * (i * gifScale + k + (j * gifScale + l) * trueGIFWidth);
                     res[elt] = red;
                     res[elt+1] = green;
                     res[elt+2] = blue;
+                }
+            }
+        }
+    }
+    return res;
+}
+
+function gifDataToIndexedImageData() {
+    var res = new Uint8Array(trueGIFWidth * trueGIFHeight);
+    res.fill(colorLookupInTable(state.bgcolor));
+    var vHt = gifScale;
+    if ("scanline" in state.metadata) {
+        vHt = (gifScale / 2) | 0;
+    }
+    for (var i = 0; i < gifDataWidth; i++) {
+        for (var j = 0; j < gifDataHeight; j++) {
+            var color = gifData[i+j*gifDataWidth];
+            for (var k = 0; k < gifScale; k++) {
+                for (var l = 0; l < vHt; l++) {
+                    var elt = i * gifScale + k + (j * gifScale + l) * trueGIFWidth;
+                    res[elt] = color;
                 }
             }
         }
@@ -157,12 +178,16 @@ function gifRedraw() {
         return;
     }
 
-    if (textMode) {
-        if (gifTextImages===undefined) {
-            regenGIFText();
-        }
+    if (gifColorTab === undefined) {
+        forceRegenGIFImages = true;
+    }
 
-        gifData.fill(colorHexToInt(state.bgcolor));
+    if (forceRegenGIFImages) {
+        gifDataResize();
+    }
+
+    if (textMode) {
+        gifData.fill(colorLookupInTable(state.bgcolor));
 
         for (var i = 0; i < titleWidth; i++) {
             for (var j = 0; j < titleHeight; j++) {
@@ -175,10 +200,7 @@ function gifRedraw() {
         }
         return;
     } else {
-        if (gifSpriteImages===undefined) {
-            regenGIFSpriteImages();
-        }
-        gifData.fill(colorHexToInt(state.bgcolor));
+        gifData.fill(colorLookupInTable(state.bgcolor));
 
         var mini=0;
         var maxi=screenwidth;

@@ -379,6 +379,7 @@ function loadLevelFromLevelDat(state,leveldat,randomseed) {
 	loadedLevelSeed = randomseed;
 	RandomGen = new RNG(loadedLevelSeed);
 	forceRegenImages=true;
+        forceRegenGIFImages = true;
 	titleScreen=false;
 	titleMode=(curlevel>0||curlevelTarget!==null)?1:0;
 	titleSelection=(curlevel>0||curlevelTarget!==null)?1:0;

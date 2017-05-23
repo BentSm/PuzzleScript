@@ -338,6 +338,7 @@ var oldcellheight=0;
 var oldtextmode=-1;
 var oldfgcolor=-1;
 var forceRegenImages=false;
+var forceRegenGIFImages=false;
 function canvasResize() {
     canvas.width = canvas.parentNode.clientWidth;
     canvas.height = canvas.parentNode.clientHeight;

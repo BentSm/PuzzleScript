@@ -21,12 +21,15 @@ function makeGIF() {
 
         encoder.setSize(trueGIFWidth, trueGIFHeight);
 
-        regenGIFText();
-        regenGIFSpriteImages();
-
 	gifRedraw();
 
-  	encoder.addFrame(gifDataToImageData(), true);
+        var indexed = (gifColorTabHex.length <= 256);
+
+        if (indexed) {
+            encoder.setGCT(gifColorTab, -1);
+        }
+
+  	encoder.addFrame((indexed ? gifDataToIndexedImageData() : gifDataToImageData()), true);
 	var autotimer=0;
 
   	for(var i=0;i<inputDat.length;i++) {
@@ -43,7 +46,7 @@ function makeGIF() {
 			processInput(val);
 		}
 		gifRedraw();
-                encoder.addFrame(gifDataToImageData(), true);
+                encoder.addFrame((indexed ? gifDataToIndexedImageData() : gifDataToImageData()), true);
 		encoder.setDelay(realtimeframe?autotickinterval:repeatinterval);
 		autotimer+=repeatinterval;
 
@@ -51,7 +54,7 @@ function makeGIF() {
 			processInput(-1);
 			gifRedraw();
 			encoder.setDelay(againinterval);
-                        encoder.addFrame(gifDataToImageData(), true);
+                        encoder.addFrame((indexed ? gifDataToIndexedImageData() : gifDataToImageData()), true);
 		}
 	}
 

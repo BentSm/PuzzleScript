@@ -2466,6 +2466,7 @@ var ifrm;
 function compile(command,text,randomseed) {
 	matchCache={};
 	forceRegenImages=true;
+	forceRegenGIFImages=true;
 	if (command===undefined) {
 		command = ["restart"];
 	}

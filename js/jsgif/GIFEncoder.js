@@ -64,6 +64,7 @@
 	    /*private*/ var firstFrame/*Boolean*/ = true;
 	    /*private*/ var sizeSet/*Boolean*/ = false; // if false, get size from first frame
 	    /*private*/ var sample/*int*/ = 10; // default sample interval for quantizer
+            /*private*/ var prePaletted/*Boolean*/ = false; // if paletting is done for us
 		
 		/**
 		* Sets the delay time between each frame, or changes it for subsequent frames
@@ -130,6 +131,29 @@
 		}
 		
 		/**
+		* Sets a global color table to be used for all frames.
+		* @param
+                * Byte array containing global color table to be used.
+                * @param
+                * Index of transparent color (-1 for none).
+		*/
+
+                var setGCT = exports.setGCT = function setGCT(gct/*ByteArray*/, transInd/*Number*/)/*void*/
+                {
+                    colorDepth = 8;
+                    colorTab = gct.concat();
+                    if (transInd >= 0) {
+                        transIndex = transInd;
+                        transparent = []; // Something non-null
+                    }
+                    palSize = Math.ceil(Math.log2(colorTab.length / 3)) - 1;
+                    if (palSize < 0) {
+                        palSize = 0;
+                    }
+                    prePaletted = true;
+                }
+
+		/**
 		* The addFrame method takes an incoming BitmapData object to create each frames
 		* @param
 		* BitmapData object to be treated as a GIF's frame
@@ -153,8 +177,12 @@
 				}else{
 				  image = im;
 				}
-				getImagePixels(); // convert to correct format if necessary
-				analyzePixels(); // build color table & map pixels
+                                if (prePaletted) {
+                                    indexedPixels = image;
+                                } else {
+                                    getImagePixels(); // convert to correct format if necessary
+                                    analyzePixels(); // build color table & map pixels
+                                }
 				
 				if (firstFrame) 
 				{
@@ -169,7 +197,7 @@
 			  
 			  writeGraphicCtrlExt(); // write graphic control extension
 		      writeImageDesc(); // image descriptor
-		      if (!firstFrame) writePalette(); // local color table
+		      if (!firstFrame && !prePaletted) writePalette(); // local color table
 		      writePixels(); // encode and write pixel data
 		      firstFrame = false;
 		    } catch (e/*Error*/) {
@@ -472,8 +500,8 @@
 		    WriteShort(height);
 
 		    // packed fields
-		    if (firstFrame) {
-		      // no LCT - GCT is used for first (or only) frame
+		    if (firstFrame || prePaletted) {
+		      // no LCT - GCT is used for first (or only or any pre-paletted) frame
 		      out.writeByte(0);
 		    } else {
 		      // specify normal LCT
