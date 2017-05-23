@@ -149,15 +149,14 @@ function gifDataToIndexedImageData() {
     if ("scanline" in state.metadata) {
         vHt = (gifScale / 2) | 0;
     }
-    for (var i = 0; i < gifDataWidth; i++) {
-        for (var j = 0; j < gifDataHeight; j++) {
+    for (var j = 0; j < gifDataHeight; j++) {
+        for (var i = 0; i < gifDataWidth; i++) {
             var color = gifData[i+j*gifDataWidth];
-            for (var k = 0; k < gifScale; k++) {
-                for (var l = 0; l < vHt; l++) {
-                    var elt = i * gifScale + k + (j * gifScale + l) * trueGIFWidth;
-                    res[elt] = color;
-                }
-            }
+            var elt = gifScale * (i + j * trueGIFWidth);
+            res.fill(color, elt, elt + gifScale);
+        }
+        for (i = 1; i < vHt; i++) {
+            res.copyWithin((j * gifScale + i) * trueGIFWidth, j * gifScale * trueGIFWidth, (j * gifScale + 1) * trueGIFWidth);
         }
     }
     return res;
