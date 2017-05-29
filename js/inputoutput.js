@@ -708,10 +708,10 @@ function update() {
     if (quittingMessageScreen) {
         if (timer/1000>0.15) {
             quittingMessageScreen=false;
-            if (levelMessage) {
-            	nextLevel();
-            } else if (messageContinuations.length > 0) {
+            if (messageContinuations.length > 0) {
                 doContinueMessage();
+            } else if (levelMessage) {
+            	nextLevel();
             } else {
             	textMode=false;
 				titleScreen=false;

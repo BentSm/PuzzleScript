@@ -303,9 +303,9 @@ function wordwrap( str, width ) {
  
     if (!str) { return str; }
  
-    var regex = '.{1,' +width+ '}(\\s|$)' + (cut ? '|.{' +width+ '}|.+$' : '|\\S+?(\\s|$)');
+    var regex = '.{1,' +width+ '}(?=\\s|$)' + (cut ? '|.{' +width+ '}|.+$' : '|\\S+?(?=\\s|$)');
  
-    return str.match( RegExp(regex, 'g') );
+    return str.replace(/\\n/g, "\n").match( RegExp(regex, 'g') );
  
 }
 
@@ -339,8 +339,6 @@ function drawMessageScreen() {
                 } else {
                     message = messagetext.shift();
                 }
-
-                message.replace(/\\n/g, "\n");
 
                 messageContinuations = message.split("\\f");
 
