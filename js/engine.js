@@ -309,6 +309,7 @@ function wordwrap( str, width ) {
  
 }
 
+var levelMessage = false;
 var splitMessage=[];
 
 function drawMessageScreen() {
@@ -328,15 +329,34 @@ function drawMessageScreen() {
 
 	var width = titleImage[0].length;
 
-	var message;
-	if (messagetext==="") {
-		var leveldat = state.levels[curlevel];
-		message = leveldat.message.trim();
-	} else {
-		message = messagetext;
-	}
-	
-	splitMessage = wordwrap(message,titleImage[0].length);
+	var message, messagePart;
+
+        if (!quittingMessageScreen) {
+            if (!continueMessage) {
+                if (levelMessage) {
+                    var leveldat = state.levels[curlevel];
+                    message = leveldat.message.trim();
+                } else {
+                    message = messagetext.shift();
+                }
+
+                message.replace(/\\n/g, "\n");
+
+                messageContinuations = message.split("\\f");
+
+            }
+
+            messagePart = messageContinuations.shift();
+
+            if (!Array.isArray(messagePart)) {
+                splitMessage = wordwrap(messagePart,titleImage[0].length);
+            } else {
+                splitMessage = messagePart;
+            }
+
+            if (splitMessage.length > 12)
+                messageContinuations.unshift(splitMessage.slice(12));
+        }
 
 
 	var offset = 5-((splitMessage.length/2)|0);
@@ -423,6 +443,7 @@ function loadLevelFromLevelDat(state,leveldat,randomseed) {
 	    }
 	} else {
 		tryPlayShowMessageSound();
+                levelMessage = true;
 		drawMessageScreen();
     	canvasResize();
 	}
@@ -794,7 +815,10 @@ function RebuildLevelArrays() {
     }
 }
 
-var messagetext="";
+var messagetext = [];
+var currMessage = [];
+var messageContinuations = [];
+var continueMessage = false;
 function restoreLevel(lev) {
 	oldflickscreendat=lev.oldflickscreendat.concat([]);
 
@@ -1985,7 +2009,7 @@ Rule.prototype.queueCommands = function() {
 	for(var i=0;i<commands.length;i++) {
 		var command=commands[i];
 		var already=false;
-		if (level.commandQueue.indexOf(command[0])>=0) {
+		if (level.commandQueue.indexOf(command[0])>=0 && command[0] != 'message') {
 			continue;
 		}
 		level.commandQueue.push(command[0]);
@@ -1998,7 +2022,7 @@ Rule.prototype.queueCommands = function() {
 		}
 
 		if (command[0]==='message') {			
-			messagetext=command[1];
+                    messagetext.push(command[1]);
 		}		
 	}
 };
@@ -2007,9 +2031,19 @@ function showTempMessage() {
 	keybuffer=[];
 	textMode=true;
 	titleScreen=false;
+        levelMessage=false;
 	quittingMessageScreen=false;
 	messageselected=false;
+        continueMessage=false;
 	tryPlayShowMessageSound();
+	drawMessageScreen();
+	canvasResize();
+}
+
+function doContinueMessage() {
+        continueMessage=true;
+	quittingMessageScreen=false;
+	messageselected=false;
 	drawMessageScreen();
 	canvasResize();
 }
@@ -2567,7 +2601,9 @@ function anyMovements() {
 
 function nextLevel() {
     againing=false;
-	messagetext="";
+	messagetext=[];
+        messageContinuations=[];
+        continueMessage = false;
 	if (state && state.levels && (curlevel>state.levels.length) ){
 		curlevel=state.levels.length-1;
 	}
@@ -2641,7 +2677,9 @@ function nextLevel() {
 
 function goToTitleScreen(){
     againing=false;
-	messagetext="";
+	messagetext=[];
+        messageContinuations=[];
+        continueMessage=false;
 	titleScreen=true;
 	textMode=true;
 	doSetupTitleScreenLevelContinue();

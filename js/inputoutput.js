@@ -662,9 +662,12 @@ function checkKey(e,justPressed) {
     				messageselected=true;
     				timer=0;
     				quittingMessageScreen=true;
-    				tryPlayCloseMessageSound();
+                                if (messageContinuations.length==0)
+                                    tryPlayCloseMessageSound();
     				titleScreen=false;
     				drawMessageScreen();
+                                if (messageContinuations.length==0)
+                                    messagetext.shift();
     			}
     		}
     	}
@@ -705,10 +708,11 @@ function update() {
     if (quittingMessageScreen) {
         if (timer/1000>0.15) {
             quittingMessageScreen=false;
-            if (messagetext==="") {
+            if (levelMessage) {
             	nextLevel();
+            } else if (messageContinuations.length > 0) {
+                doContinueMessage();
             } else {
-            	messagetext="";
             	textMode=false;
 				titleScreen=false;
 				titleMode=(curlevel>0||curlevelTarget!==null)?1:0;
