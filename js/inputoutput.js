@@ -666,8 +666,6 @@ function checkKey(e,justPressed) {
                                     tryPlayCloseMessageSound();
     				titleScreen=false;
     				drawMessageScreen();
-                                if (messageContinuations.length==0)
-                                    messagetext.shift();
     			}
     		}
     	}
@@ -697,7 +695,7 @@ function update() {
         }
     }
     if (againing) {
-        if (timer>againinterval&&messagetext.length==0) {
+        if (timer>againinterval&&!textMode&&messagetext.length==0) {
             if (processInput(-1)) {
                 redraw();
                 keyRepeatTimer=0;
@@ -712,6 +710,8 @@ function update() {
                 doContinueMessage();
             } else if (levelMessage) {
             	nextLevel();
+            } else if (messagetext.length > 0) {
+                showTempMessage();
             } else {
             	textMode=false;
 				titleScreen=false;

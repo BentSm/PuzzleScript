@@ -404,6 +404,8 @@ function loadLevelFromLevelDat(state,leveldat,randomseed) {
 	titleMode=(curlevel>0||curlevelTarget!==null)?1:0;
 	titleSelection=(curlevel>0||curlevelTarget!==null)?1:0;
 	titleSelected=false;
+        messagetext = [];
+        messageContinuations = [];
     againing=false;
     if (leveldat===undefined) {
     	consolePrint("Trying to access a level that doesn't exist.",true);
@@ -2009,10 +2011,11 @@ Rule.prototype.queueCommands = function() {
 	for(var i=0;i<commands.length;i++) {
 		var command=commands[i];
 		var already=false;
-		if (level.commandQueue.indexOf(command[0])>=0 && command[0] != 'message') {
+		if (level.commandQueue.indexOf(command[0])>=0 && command[0]!='message') {
 			continue;
 		}
-		level.commandQueue.push(command[0]);
+                if (level.commandQueue.indexOf(command[0])<0)
+                    level.commandQueue.push(command[0]);
 
 		if (verbose_logging){
 			var lineNumber = this.lineNumber;
@@ -2458,7 +2461,7 @@ function processInput(dir,dontCheckWin,dontModify) {
 		    if (level.commandQueue.indexOf('again')>=0 && modified) {
 		    	//first have to verify that something's changed
 		    	var old_verbose_logging=verbose_logging;
-		    	var oldmessagetext = messagetext;
+		    	var oldmessagetext = messagetext.concat();
 		    	verbose_logging=false;
 		    	if (processInput(-1,true,true)) {
 			    	verbose_logging=old_verbose_logging;
@@ -2476,7 +2479,7 @@ function processInput(dir,dontCheckWin,dontModify) {
 					}
 			    }
 			    verbose_logging=old_verbose_logging;
-			    messagetext = oldmessagetext;
+			    messagetext = oldmessagetext.concat();
 		    }   
 		}
 		    
