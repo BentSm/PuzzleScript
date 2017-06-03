@@ -120,22 +120,39 @@ function gifDataToImageData() {
     var res = new Uint8Array(trueGIFWidth * trueGIFHeight * 4);
     res.fill(255);
     var vHt = gifScale;
-    if ("scanline" in state.metadata) {
+    var doScanline = ("scanline" in state.metadata);
+    if (doScanline) {
         vHt = (gifScale / 2) | 0;
+        var bgIndex = colorLookupInTable(state.bgcolor);
+        var bgRed = gifColorTab[3*bgIndex];
+        var bgGreen = gifColorTab[3*bgIndex+1];
+        var bgBlue = gifColorTab[3*bgIndex+2];
+        for (var i = 0; i < trueGIFWidth; i++) {
+            var elt = 4 * (i + vHt * trueGIFWidth);
+            res[elt] = bgRed;
+            res[elt+1] = bgGreen;
+            res[elt+2] = bgBlue;
+        }
     }
-    for (var i = 0; i < gifDataWidth; i++) {
-        for (var j = 0; j < gifDataHeight; j++) {
+    for (var j = 0; j < gifDataHeight; j++) {
+        for (var i = 0; i < gifDataWidth; i++) {
             var color = gifData[i+j*gifDataWidth];
             var red = gifColorTab[3*color];
             var green = gifColorTab[3*color+1];
             var blue = gifColorTab[3*color+2];
             for (var k = 0; k < gifScale; k++) {
-                for (var l = 0; l < vHt; l++) {
-                    var elt = 4 * (i * gifScale + k + (j * gifScale + l) * trueGIFWidth);
-                    res[elt] = red;
-                    res[elt+1] = green;
-                    res[elt+2] = blue;
-                }
+                var elt = 4 * (i * gifScale + k + (j * gifScale) * trueGIFWidth);
+                res[elt] = red;
+                res[elt+1] = green;
+                res[elt+2] = blue;
+            }
+        }
+        for (i = 1; i < vHt; i++) {
+            res.copyWithin((j * gifScale + i) * trueGIFWidth, j * gifScale * trueGIFWidth, (j * gifScale + 1) * trueGIFWidth);
+        }
+        if (doScanline) {
+            for (i = (j == 0 ? 1 : 0) + vHt; i < gifScale; i++) {
+                res.copyWithin((j * gifScale + i) * trueGIFWidth, vHt * trueGIFWidth, (vHt + 1) * trueGIFWidth);
             }
         }
     }
