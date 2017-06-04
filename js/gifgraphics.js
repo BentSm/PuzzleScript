@@ -7,6 +7,9 @@ function colorLookupInTable(colorIn) {
     var color = colorIn.toLowerCase();
     if (color == "transparent")
         return -1;
+    if (color.length == 4) {
+        color = "#".concat(color[1], color[1], color[2], color[2], color[3], color[3]);
+    }
     var pos = gifColorTabHex.indexOf(color);
     if (pos == -1) {
         gifColorTab = gifColorTab.concat(colorHexToRGB(color));
