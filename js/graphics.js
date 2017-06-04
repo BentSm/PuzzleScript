@@ -40,6 +40,7 @@ function regenText(spritecanvas,spritectx) {
 			textImages[n] = createSprite('char'+n,font[n], undefined, 1);
 		}
 	}
+        gifRegenText();
 }
 var spriteimages;
 function regenSpriteImages() {
@@ -65,6 +66,7 @@ function regenSpriteImages() {
     if (canOpenEditor) {
     	generateGlyphImages();
     }
+    gifRegenSpriteImages();
 }
 
 var glyphImagesCorrespondance;
@@ -195,7 +197,7 @@ function redraw() {
     if (spriteimages===undefined) {
         regenSpriteImages();
     }
-
+    /*
     if (textMode) {
         ctx.fillStyle = state.bgcolor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -282,6 +284,8 @@ function redraw() {
 	    	drawEditorIcons();
 	    }
     }
+    */
+    gifRedrawToCanvas();
 }
 
 function drawEditorIcons() {
@@ -409,6 +413,8 @@ function canvasResize() {
 
     if (oldcellwidth!=cellwidth||oldcellheight!=cellheight||oldtextmode!=textMode||oldfgcolor!=state.fgcolor||forceRegenImages){
     	forceRegenImages=false;
+        forceRegenGIFImages=true;
+        gifDataResize();
     	regenSpriteImages();
     }
 

@@ -19,7 +19,11 @@ function colorLookupInTable(colorIn) {
     return pos;
 }
 
-function createGIFSprite(spritegrid, colors, padding) {
+function gifCreateBlankSprite(size) {
+    return Array(size).fill(-1);
+}
+
+function gifCreateSprite(spritegrid, colors, padding) {
     if (colors === undefined) {
         colors = [state.bgcolor, state.fgcolor];
     }
@@ -28,7 +32,7 @@ function createGIFSprite(spritegrid, colors, padding) {
     var h = spritegrid.length;
     var tw = w + (padding|0);
     var th = h + (padding|0);
-    var sprite = Array(tw * th).fill(-1);
+    var sprite = gifCreateBlankSprite(tw * th);
     var numericColors = colors.map(colorLookupInTable);
 
     for (var j = 0; j < w; j++) {
@@ -44,17 +48,17 @@ function createGIFSprite(spritegrid, colors, padding) {
     return sprite;
 }
 
-function resetGIFColorTables() {
+function gifResetColorTables() {
     gifColorTab = [];
     gifColorTabHex = [];
 }
 
-function regenGIFText() {
+function gifRegenText() {
 	gifTextImages={};
 
 	for (var n in font) {
 		if (font.hasOwnProperty(n)) {
-			gifTextImages[n] = createGIFSprite(font[n], undefined, 1);
+			gifTextImages[n] = gifCreateSprite(font[n], undefined, 1);
 		}
 	}
 }
@@ -63,7 +67,7 @@ var gifSpriteImages;
 var gifColorTab;
 var gifColorTabHex;
 
-function regenGIFSpriteImages() {
+function gifRegenSpriteImages() {
 
     if (state.levels.length===0) {
         return;
@@ -74,7 +78,7 @@ function regenGIFSpriteImages() {
         if (sprites[i] == undefined) {
             continue;
         }
-        gifSpriteImages[i] = createGIFSprite(sprites[i].dat, sprites[i].colors);
+        gifSpriteImages[i] = gifCreateSprite(sprites[i].dat, sprites[i].colors);
     }
 
 }
@@ -112,15 +116,17 @@ function gifDataResize() {
     trueGIFHeight = gifDataHeight * gifScale;
 
     if (forceRegenGIFImages) {
-        resetGIFColorTables();
-        regenGIFText();
-        regenGIFSpriteImages();
+        gifResetColorTables();
+        gifRegenText();
+        gifRegenSpriteImages();
         forceRegenGIFImages = false;
     }
 }
 
-function gifDataToImageData() {
-    var res = new Uint8Array(trueGIFWidth * trueGIFHeight * 4);
+function gifDataToImageData(storeTo) {
+    var res = storeTo;
+    if (res === undefined)
+        res = new Uint8ClampedArray(trueGIFWidth * trueGIFHeight * 4);
     res.fill(255);
     var vHt = gifScale;
     var doScanline = ("scanline" in state.metadata);
@@ -151,11 +157,11 @@ function gifDataToImageData() {
             }
         }
         for (i = 1; i < vHt; i++) {
-            res.copyWithin((j * gifScale + i) * trueGIFWidth, j * gifScale * trueGIFWidth, (j * gifScale + 1) * trueGIFWidth);
+            res.copyWithin(4 * (j * gifScale + i) * trueGIFWidth, 4 * j * gifScale * trueGIFWidth, 4 * (j * gifScale + 1) * trueGIFWidth);
         }
         if (doScanline) {
             for (i = (j == 0 ? 1 : 0) + vHt; i < gifScale; i++) {
-                res.copyWithin((j * gifScale + i) * trueGIFWidth, vHt * trueGIFWidth, (vHt + 1) * trueGIFWidth);
+                res.copyWithin(4 * (j * gifScale + i) * trueGIFWidth, 4 * vHt * trueGIFWidth, 4 * (vHt + 1) * trueGIFWidth);
             }
         }
     }
@@ -163,7 +169,7 @@ function gifDataToImageData() {
 }
 
 function gifDataToIndexedImageData() {
-    var res = new Uint8Array(trueGIFWidth * trueGIFHeight);
+    var res = new Uint8ClampedArray(trueGIFWidth * trueGIFHeight);
     res.fill(colorLookupInTable(state.bgcolor));
     var vHt = gifScale;
     if ("scanline" in state.metadata) {
@@ -190,7 +196,6 @@ function gifDrawImage(sprite, xoff, yoff) {
         }
     }
 }
-
 
 function gifRedraw() {
     if (cellwidth===0||cellheight===0) {
@@ -226,7 +231,12 @@ function gifRedraw() {
         var minj=0;
         var maxj=screenheight;
 
-        if (flickscreen) {
+        if (levelEditorOpened) {
+            var glyphcount = glyphCount();
+            editorRowCount = Math.ceil(glyphcount/(screenwidth-1));
+            maxi-=2;
+            maxj-=2+editorRowCount;
+        } if (flickscreen) {
             var playerPositions = getPlayerPositions();
             if (playerPositions.length>0) {
                 var playerPosition=playerPositions[0];
@@ -283,4 +293,103 @@ function gifRedraw() {
     }
 }
 
+function gifRedrawToCanvas() {
+    if (cellwidth===0&&cellheight===0)
+        return;
 
+    gifRedraw();
+
+    var imageData = ctx.createImageData(trueGIFWidth, trueGIFHeight);
+    gifDataToImageData(imageData.data);
+    ctx.putImageData(imageData, xoffset, yoffset);
+
+    if(!textMode&&levelEditorOpened)
+        drawEditorIcons();
+}
+/* Normal graphics using GIF graphics methods */
+/*var gifGlyphImages;
+var gifGlyphHighlight;
+var gifGlyphHighlightResize;
+var gifGlyphPrintButton;
+var gifGlyphMouseOver;
+var gifEditMouseX;
+var gifEditMouseY;
+var gifEditSelectedX;
+var gifEditSelectedY;
+var gifMouseType;
+
+function gifDrawOnImage(target, sprite) {
+    for (var i = 0; i < gifW; i++) {
+        for (var j = 0; j < gifH; j++) {
+            if (sprite[i+j*gifW] >= 0)
+                target[i+j*gifW] = sprite[i+j*gifW];
+        }
+    }
+}
+
+function gifGenerateGlyphImages() {
+    if (cellwidth===0||cellheight===0) {
+        return;
+    }
+
+    gifGlyphImages=[];
+
+    for (var n in state.glyphDict) {
+        if (n.length==1 && state.glyphDict.hasOwnProperty(n)) {
+            var g=state.glyphDict[n];
+            var sprite = gifCreateBlankImage(gifW * gifH);
+            for (var i=0;i<g.length;i++){
+                var id = g[i];
+                if (id===-1) {
+                    continue;
+                }
+		gifDrawOnImage(sprite, gifSpriteImages[id]);
+            }
+            gifGlyphImages.push(sprite);
+        }
+    }
+
+    {
+        //make highlight thingy
+        glyphHighlight = gifCreateBlankImage(gifW * gifHmakeSpriteCanvas("highlight");
+		var spritectx = glyphHighlight.getContext('2d');
+		spritectx.fillStyle = '#FFFFFF';
+
+		spritectx.fillRect(0,0,cellwidth,1);
+		spritectx.fillRect(0,0,1,cellheight);
+		
+		spritectx.fillRect(0,cellheight-1,cellwidth,1);
+		spritectx.fillRect(cellwidth-1,0,1,cellheight);
+	}
+
+	{
+		glyphPrintButton = textImages['s'];
+	}
+	{
+		//make highlight thingy
+		glyphHighlightResize = makeSpriteCanvas("highlightresize");
+		var spritectx = glyphHighlightResize.getContext('2d');
+		spritectx.fillStyle = '#FFFFFF';
+		
+		var minx=((cellwidth/2)-1)|0;
+		var xsize=cellwidth-minx-1-minx;
+		var miny=((cellheight/2)-1)|0;
+		var ysize=cellheight-miny-1-minx;
+
+		spritectx.fillRect(minx,0,xsize,cellheight);
+		spritectx.fillRect(0,miny,cellwidth,ysize);
+	}
+
+	{
+		//make highlight thingy
+		glyphMouseOver = makeSpriteCanvas();
+		var spritectx = glyphMouseOver.getContext('2d');
+		spritectx.fillStyle = 'yellow';
+		
+		spritectx.fillRect(0,0,cellwidth,2);
+		spritectx.fillRect(0,0,2,cellheight);
+		
+		spritectx.fillRect(0,cellheight-2,cellwidth,2);
+		spritectx.fillRect(cellwidth-2,0,2,cellheight);
+	}
+        }*/
