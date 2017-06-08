@@ -10,9 +10,8 @@ function redraw() {
 
 }
 
-function forceRegenImages(){
-
-}
+var forceRegenImages;
+var forceRegenGIFImages;
 
 var levelString;
 var inputString;
