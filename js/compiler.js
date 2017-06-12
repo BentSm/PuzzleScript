@@ -228,11 +228,14 @@ function generateExtraMembers(state) {
 	state.aggregatesDict = aggregatesDict;
 
 	var propertiesDict = {};
+        var singleLayerPropertiesDict = {};
 	for (var i = 0; i < state.legend_properties.length; i++) {
 		var entry = state.legend_properties[i];
 		propertiesDict[entry[0]] = entry.slice(1);
+		singleLayerPropertiesDict[entry[0]] = entry.slice(1);
 	}
 	state.propertiesDict = propertiesDict;
+        state.singleLayerPropertiesDict = singleLayerPropertiesDict;
 
 	//calculate lookup dictionaries
 	var synonymsDict = {};
@@ -245,6 +248,7 @@ function generateExtraMembers(state) {
 		}
 		else if (value in propertiesDict) {
 			propertiesDict[key]=propertiesDict[value];
+                        singleLayerPropertiesDict[key]=singleLayerPropertiesDict[value];
 		} else if (key!==value) {
 			synonymsDict[key] = value;		
 		}
@@ -257,6 +261,8 @@ function generateExtraMembers(state) {
 		for (var n in synonymsDict) {
 			if (synonymsDict.hasOwnProperty(n)) {
 				var value = synonymsDict[n];
+                                /* These should never occur ... and don't make sense anyways. */
+                                /*
 				if (value in propertiesDict) {
 					delete synonymsDict[n];
 					propertiesDict[n]=propertiesDict[value];
@@ -266,7 +272,7 @@ function generateExtraMembers(state) {
 					delete aggregatesDict[n];
 					aggregatesDict[n]=aggregatesDict[value];
 					modified=true;
-				} else if (value in synonymsDict) {
+                                        } else*/ if (value in synonymsDict) {
 					synonymsDict[n]=synonymsDict[value];
 				}
 			}
@@ -341,6 +347,71 @@ function generateExtraMembers(state) {
 			}
 		}
 	}
+
+        /* Create partial single-layer decompositions */
+
+        modified = true;
+        while (modified) {
+            modified = false;
+            for (var n in singleLayerPropertiesDict) {
+                if (singleLayerPropertiesDict.hasOwnProperty(n)) {
+                    var values = singleLayerPropertiesDict[n];
+                    for (var i=0;i<values.length;i++) {
+                        var value = values[i];
+                        if (value in synonymsDict) {
+                            values[i]=synonymsDict[value];
+                        } else if ((value in singleLayerPropertiesDict) && !state.propertiesSingleLayer.hasOwnProperty(value)) {
+                            values.splice(i,1);
+                            var newvalues=singleLayerPropertiesDict[value];
+                            for (var j=0;j<newvalues.length;j++) {
+                                var newvalue=newvalues[j];
+                                if (values.indexOf(newvalue)===-1) {
+                                    values.push(newvalue);
+                                }
+                            }
+                            modified=true;
+                        }
+                    }
+                }
+            }
+        }
+
+        /* Ensure that unfortunate partial decompositions do not increase the number of values beyond that of a total decomposition */
+
+        var sortFn = function(x,y) { return x.length < y.length; };
+        var filterFn = function(x) { return (x in propertiesDict); };
+
+        for (var n in singleLayerPropertiesDict) {
+            if (singleLayerPropertiesDict.hasOwnProperty(n)) {
+                var values = (singleLayerPropertiesDict[n]).filter(filterFn).sort(sortFn);
+                var allValues = propertiesDict[n];
+                var valuesSoFar = [];
+                var newValues = [];
+                for (var i=0;i<allValues.length;i++) {
+                    var value = allValues[i];
+                    if (valuesSoFar.indexOf(value)===-1) {
+                        var found = false;
+                        for (var j=0;j<values.length;j++) {
+                            var aValue = values[j];
+                            if (propertiesDict[aValue].indexOf(value)!==-1) {
+                                newValues.push(aValue);
+                                for (var k=0;k<propertiesDict[aValue].length;k++) {
+                                    var addValue = propertiesDict[aValue][k];
+                                    if (valuesSoFar.indexOf(addValue)===-1) {
+                                        valuesSoFar.push(addValue);
+                                    }
+                                }
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found)
+                            newValues.push(value);
+                    }
+                }
+                singleLayerPropertiesDict[n] = newValues;
+            }
+        }
 
 	if (state.idDict[0]===undefined && state.collisionLayers.length>0) {
 		logError('You need to have some objects defined');
@@ -1047,7 +1118,7 @@ function concretizePropertyRule(state, rule,lineNumber) {
 							continue;
 						}
 
-						var aliases = state.propertiesDict[property];
+						var aliases = (ambiguousProperties[property] ? state.propertiesDict[property] : state.singleLayerPropertiesDict[property]);
 
 						shouldremove = true;
 						modified = true;
