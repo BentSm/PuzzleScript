@@ -348,7 +348,7 @@ function generateExtraMembers(state) {
 		}
 	}
 
-        /* Create partial single-layer decompositions */
+        /* Create single-layer partial decompositions */
 
         modified = true;
         while (modified) {
