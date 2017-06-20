@@ -332,86 +332,43 @@ function generateExtraMembers(state) {
 
 	/* determine which properties specify objects all on one layer */
 	state.propertiesSingleLayer = {};
+	state.mergedLayerProperties = [];
 	for (var key in propertiesDict) {
 		if (propertiesDict.hasOwnProperty(key)) {
 			var values = propertiesDict[key];
-			var sameLayer = true;
-			for (var i = 1; i < values.length; i++) {
-				if ((state.objects[values[i-1]].layer !== state.objects[values[i]].layer)) {
-					sameLayer = false;
-					break;
-				}
+			var objectLayers = {};
+			var numLayers = 0;
+			for (var i = 0; i < values.length; i++) {
+			    var aLayer = state.objects[values[i]].layer;
+			    if (objectLayers.hasOwnProperty(aLayer)) {
+				objectLayers[aLayer].push(values[i]);
+			    } else {
+				objectLayers[aLayer] = [values[i]];
+				numLayers++;
+			    }
 			}
-			if (sameLayer) {
+			if (numLayers === 1) {
 				state.propertiesSingleLayer[key] = state.objects[values[0]].layer;
+			} else {
+			    var layerObjects = [];
+			    for (var n in objectLayers) {
+				if (objectLayers.hasOwnProperty(n)) {
+				    if (objectLayers[n].length === 1) {
+					layerObjects.push(objectLayers[n][0]);
+				    } else {
+					var mergedLayerName = key + "$layer" + n;
+					propertiesDict[mergedLayerName] = objectLayers[n];
+					layerObjects.push(mergedLayerName);
+					state.propertiesSingleLayer[mergedLayerName] = parseInt(n);
+					state.singleLayerPropertiesDict[mergedLayerName] = [mergedLayerName];
+					state.mergedLayerProperties.push(mergedLayerName);
+				    }
+				}
+			    }
+			    state.singleLayerPropertiesDict[key] = layerObjects;
 			}
 		}
 	}
-
-        /* Create single-layer partial decompositions */
-
-        modified = true;
-        while (modified) {
-            modified = false;
-            for (var n in singleLayerPropertiesDict) {
-                if (singleLayerPropertiesDict.hasOwnProperty(n)) {
-                    var values = singleLayerPropertiesDict[n];
-                    for (var i=0;i<values.length;i++) {
-                        var value = values[i];
-                        if (value in synonymsDict) {
-                            values[i]=synonymsDict[value];
-                        } else if ((value in singleLayerPropertiesDict) && !state.propertiesSingleLayer.hasOwnProperty(value)) {
-                            values.splice(i,1);
-                            var newvalues=singleLayerPropertiesDict[value];
-                            for (var j=0;j<newvalues.length;j++) {
-                                var newvalue=newvalues[j];
-                                if (values.indexOf(newvalue)===-1) {
-                                    values.push(newvalue);
-                                }
-                            }
-                            modified=true;
-                        }
-                    }
-                }
-            }
-        }
-
-        /* Ensure that unfortunate partial decompositions do not increase the number of values beyond that of a total decomposition */
-
-        var sortFn = function(x,y) { return x.length < y.length; };
-        var filterFn = function(x) { return (x in propertiesDict); };
-
-        for (var n in singleLayerPropertiesDict) {
-            if (singleLayerPropertiesDict.hasOwnProperty(n)) {
-                var values = (singleLayerPropertiesDict[n]).filter(filterFn).sort(sortFn);
-                var allValues = propertiesDict[n];
-                var valuesSoFar = [];
-                var newValues = [];
-                for (var i=0;i<allValues.length;i++) {
-                    var value = allValues[i];
-                    if (valuesSoFar.indexOf(value)===-1) {
-                        var found = false;
-                        for (var j=0;j<values.length;j++) {
-                            var aValue = values[j];
-                            if (propertiesDict[aValue].indexOf(value)!==-1) {
-                                newValues.push(aValue);
-                                for (var k=0;k<propertiesDict[aValue].length;k++) {
-                                    var addValue = propertiesDict[aValue][k];
-                                    if (valuesSoFar.indexOf(addValue)===-1) {
-                                        valuesSoFar.push(addValue);
-                                    }
-                                }
-                                found = true;
-                                break;
-                            }
-                        }
-                        if (!found)
-                            newValues.push(value);
-                    }
-                }
-                singleLayerPropertiesDict[n] = newValues;
-            }
-        }
 
 	if (state.idDict[0]===undefined && state.collisionLayers.length>0) {
 		logError('You need to have some objects defined');
@@ -1957,6 +1914,11 @@ function generateMasks(state) {
 			}
 			objectMask[synprop[0]]=val;
 		}
+	}
+
+	for (var i=0;i<state.mergedLayerProperties.length;i++) {
+	    var mergedLayer = state.mergedLayerProperties[i];
+	    objectMask[mergedLayer] = getMaskFromName(state,mergedLayer);
 	}
 
 	state.objectMasks = objectMask;
