@@ -303,7 +303,7 @@ function wordwrap( str, width ) {
  
     if (!str) { return str; }
  
-    var regex = '.{1,' +width+ '}(?=\\s|$)' + (cut ? '|.{' +width+ '}|.+$' : '|\\S+?(?=\\s|$)');
+    var regex = '(?:^|\\s)(?=\\s|$)|.{1,' +width+ '}(?=\\s|$)' + (cut ? '|.{' +width+ '}|.+$' : '|\\S+?(?=\\s|$)');
  
     return str.replace(/\\n/g, "\n").match( RegExp(regex, 'g') );
  
