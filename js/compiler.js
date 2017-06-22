@@ -516,7 +516,8 @@ var directionaggregates = {
 var relativeDirections = ['^', 'v', '<', '>','horizontal','vertical'];
 var simpleAbsoluteDirections = ['up', 'down', 'left', 'right'];
 var simpleRelativeDirections = ['^', 'v', '<', '>'];
-var reg_directions_only = /^(\>|\<|\^|v|up|down|left|right|moving|stationary|no|randomdir|random|horizontal|vertical|orthogonal|perpendicular|parallel|action)$/;
+var reg_directions_only = /^(\>|\<|\^|v|up|down|left|right|moving|stationary|randomdir|horizontal|vertical|orthogonal|perpendicular|parallel|action)$/;
+var reg_specials_only = /^(random|no)$/;
 //redeclaring here, i don't know why
 var commandwords = ["sfx0","sfx1","sfx2","sfx3","sfx4","sfx5","sfx6","sfx7","sfx8","sfx9","sfx10","cancel","checkpoint","restart","win","message","again"];
 
@@ -530,8 +531,8 @@ function directionalRule(rule) {
 		}
 		for (var j=0;j<cellRow.length;j++) {
 			var cell = cellRow[j];
-			for (var k=0;k<cell.length;k+=2) {
-				if (relativeDirections.indexOf(cell[k])>=0) {
+			for (var k=0;k<cell.length;k+=3) {
+				if (relativeDirections.indexOf(cell[k+1])>=0) {
 					return true;
 				}
 			}
@@ -544,8 +545,8 @@ function directionalRule(rule) {
 		}
 		for (var j=0;j<cellRow.length;j++) {
 			var cell = cellRow[j];
-			for (var k=0;k<cell.length;k+=2) {
-				if (relativeDirections.indexOf(cell[k])>=0) {
+			for (var k=0;k<cell.length;k+=3) {
+				if (relativeDirections.indexOf(cell[k+1])>=0) {
 					return true;
 				}
 			}
@@ -689,22 +690,34 @@ function processRuleString(rule, state, curRules)
 					incellrow = true;
 					curcell = [];
 				} else if (reg_directions_only.exec(token)) {
-					if (curcell.length % 2 == 1) {
+					if (curcell.length % 3 == 2) {
 						logError("Error, an item can only have one direction/action at a time, but you're looking for several at once!", lineNumber);
 					} else if (!incellrow) {
 						logWarning("Invalid syntax. Directions should be placed at the start of a rule.", lineNumber);
-  					} else {
+  					} else if (curcell.length % 3 == 1) {
 						curcell.push(token);
+					} else {
+					    curcell.push('', token);
 					}
+				} else if (reg_specials_only.exec(token)) {
+				    if (curcell.length % 3 == 1) {
+					logError("You can have at most one special modifier on an object.", lineNumber);
+				    } else if (!incellrow) {
+					logError("A special modifier must apply to an object.", lineNumber);
+				    } else if (curcell.length % 3 == 0) {
+					curcell.push(token);
+				    } else {
+					curcell[curcell.length-2] = token;
+				    }
 				} else if (token == '|') {
-					if (curcell.length % 2 == 1) {
+					if (curcell.length % 3 != 0) {
 						logError('In a rule, if you specify a force, it has to act on an object.', lineNumber);
 					} else {
 						curcellrow.push(curcell);
 						curcell = [];
 					}
 				} else if (token === ']') {
-					if (curcell.length % 2 == 1) {
+					if (curcell.length % 3 != 0) {
 						if (curcell[0]==='...') {
 							logError('Cannot end a rule with ellipses.', lineNumber);
 						} else {
@@ -734,11 +747,12 @@ function processRuleString(rule, state, curRules)
 					if (!incellrow) {
  						logWarning("Invalid token "+token.toUpperCase() +". Object names should only be used within cells (square brackets).", lineNumber);
  					}
- 					else if (curcell.length % 2 == 0) {
-						curcell.push('');
-						curcell.push(token);
-					} else if (curcell.length % 2 == 1) {
-						curcell.push(token);
+ 					else if (curcell.length % 3 == 0) {
+					    curcell.push('','',token);
+					} else if (curcell.length % 3 == 1) {
+					    curcell.push('',token);
+					} else if (curcell.length % 3 == 2) {
+					    curcell.push(token);
 					}
 				} else if (token==='...') {
 					if (!incellrow) {
@@ -746,6 +760,7 @@ function processRuleString(rule, state, curRules)
  					} else {
  						curcell.push(token);
  						curcell.push(token);
+						curcell.push(token);
  					}
 				} else if (commandwords.indexOf(token)>=0) {
 					if (rhs===false) {
@@ -943,10 +958,10 @@ function rewriteUpLeftRules(rule) {
 
 function getPropertiesFromCell(state,cell ) {
 	var result = [];
-	for (var j = 0; j < cell.length; j += 2) {
-		var dir = cell[j];
-		var name = cell[j+1];
-		if (dir=="random") {
+	for (var j = 0; j < cell.length; j += 3) {
+		var modifier = cell[j];
+		var name = cell[j+2];
+		if (modifier!=="") {
 			continue;
 		}
 		if (name in state.propertiesDict) {
@@ -959,9 +974,9 @@ function getPropertiesFromCell(state,cell ) {
 //returns you a list of object names in that cell that're moving
 function getMovings(state,cell ) {
 	var result = [];
-	for (var j = 0; j < cell.length; j += 2) {
-		var dir = cell[j];
-		var name = cell[j+1];
+	for (var j = 0; j < cell.length; j += 3) {
+		var dir = cell[j+1];
+		var name = cell[j+2];
 		if (dir in directionaggregates) {
 			result.push([name,dir]);
 		}
@@ -970,43 +985,46 @@ function getMovings(state,cell ) {
 }
 
 function concretizePropertyInCell(cell ,property, concreteType) {
-	for (var j = 0; j < cell.length; j += 2) {
-		if (cell[j+1] === property && cell[j]!=="random") {
-			cell[j+1] = concreteType;
+	for (var j = 0; j < cell.length; j += 3) {
+		if (cell[j+2] === property && cell[j]!=="random") {
+			cell[j+2] = concreteType;
 		}
 	}
 }
 
 function concretizeMovingInCell(cell , ambiguousMovement, nameToMove, concreteDirection) {
-	for (var j = 0; j < cell.length; j += 2) {
-		if (cell[j]===ambiguousMovement && cell[j+1] === nameToMove) {
-			cell[j] = concreteDirection;
+	for (var j = 0; j < cell.length; j += 3) {
+		if (cell[j+1]===ambiguousMovement && cell[j+2] === nameToMove) {
+			cell[j+1] = concreteDirection;
 		}
 	}
 }
 
 function concretizeMovingInCellByAmbiguousMovementName(cell ,ambiguousMovement, concreteDirection) {
-	for (var j = 0; j < cell.length; j += 2) {
-		if (cell[j] === ambiguousMovement) {
-			cell[j] = concreteDirection;
+	for (var j = 0; j < cell.length; j += 3) {
+		if (cell[j+1] === ambiguousMovement) {
+			cell[j+1] = concreteDirection;
 		}
 	}
 }
 
 function expandNoPrefixedProperties(state, cell) {
 	var expanded = [];
-	for (var i=0;i<cell.length;i+=2)  {
-		var dir = cell[i];
-		var name = cell[i+1];
+	for (var i=0;i<cell.length;i+=3)  {
+		var modifier = cell[i];
+		var dir = cell[i+1];
+		var name = cell[i+2];
 
-		if ( dir ==='no' && (name in state.propertiesDict)) {
+		if ( modifier ==='no' && (name in state.propertiesDict)) {
 			var aliases = state.propertiesDict[name];
 			for (var j=0;j<aliases.length;j++) {
 				var alias = aliases[j];
+				expanded.push(modifier);
 				expanded.push(dir);
 				expanded.push(alias);
 			}
 		} else {
+		    expanded.push(modifier);
 			expanded.push(dir);
 			expanded.push(name);
 		} 
@@ -1313,7 +1331,7 @@ function rephraseSynonyms(state,rule) {
 		var cellrow_r = rule.rhs[i];
 		for (var j = 0; j < cellrow_l.length; j++) {
 			var cell_l = cellrow_l[j];
-			for (var k = 1; k < cell_l.length; k += 2) {
+			for (var k = 2; k < cell_l.length; k += 3) {
 				var name = cell_l[k];
 				if (name in state.synonymsDict) {
 					cell_l[k] = state.synonymsDict[cell_l[k]];
@@ -1321,7 +1339,7 @@ function rephraseSynonyms(state,rule) {
 			}
 			if (rule.rhs.length>0) {
 				var cell_r = cellrow_r[j];
-				for (var k = 1; k < cell_r.length; k += 2) {
+				for (var k = 2; k < cell_r.length; k += 3) {
 					var name = cell_r[k];
 					if (name in state.synonymsDict) {
 						cell_r[k] = state.synonymsDict[cell_r[k]];
@@ -1350,17 +1368,19 @@ function atomizeAggregates(state, rule) {
 }
 
 function atomizeCellAggregates(state, cell, lineNumber) {
-	for (var i = 0; i < cell.length; i += 2) {
-		var dir =cell[i];
-		var c = cell[i+1];
+	for (var i = 0; i < cell.length; i += 3) {
+		var modifier =cell[i];
+		var dir =cell[i+1];
+		var c = cell[i+2];
 		if (c in state.aggregatesDict) {
-			if (dir==='no') {
+			if (modifier==='no') {
 				logError("You cannot use 'no' to exclude the aggregate object " +c.toUpperCase()+" (defined using 'AND'), only regular objects, or properties (objects defined using 'OR').  If you want to do this, you'll have to write it out yourself the long way.",lineNumber);
 			}
 			var equivs = state.aggregatesDict[c];
-			cell[i+1] = equivs[0];
+			cell[i+2] = equivs[0];
 			for (var j= 1; j < equivs.length; j++) {
-				cell.push(cell[i]);//push the direction
+			    cell.push(modifier);//push the modifier
+			    cell.push(dir);//push the direction
 				cell.push(equivs[j]);
 			}
 		}
@@ -1394,7 +1414,7 @@ var relativeDict = {
 };
 
 function absolutifyRuleCell(forward, cell) {
-	for (var i = 0; i < cell.length; i += 2) {
+	for (var i = 1; i < cell.length; i += 3) {
 		var c = cell[i];
 		var index = relativeDirs.indexOf(c);
 		if (index >= 0) {
@@ -1418,9 +1438,7 @@ var dirMasks = {
 	'left'	: parseInt('00100', 2),
 	'right'	: parseInt('01000', 2),
 	'moving': parseInt('01111', 2),
-	'no'	: parseInt('00011', 2),
 	'randomdir': parseInt('00101', 2),
-	'random' : parseInt('10010',2),
 	'action' : parseInt('10000', 2),
 	'' : parseInt('00000',2)
 };
@@ -1450,27 +1468,28 @@ function rulesToMask(state) {
 				var movementsMissing = new BitVec(STRIDE_MOV);
 
 				var objectlayers_l = new BitVec(STRIDE_MOV);
-				for (var l = 0; l < cell_l.length; l += 2) {
-					var object_dir = cell_l[l];
-					if (object_dir==='...') {
+				for (var l = 0; l < cell_l.length; l += 3) {
+					var object_modifier = cell_l[l];
+					if (object_modifier==='...') {
 						objectsPresent = ellipsisPattern;
-						if (cell_l.length!==2) {
+						if (cell_l.length!==3) {
 							logError("You can't have anything in with an ellipsis. Sorry.",rule.lineNumber);
 						} else if ((k===0)||(k===cellrow_l.length-1)) {
 							logError("There's no point in putting an ellipsis at the very start or the end of a rule",rule.lineNumber);
 						} else if (rule.rhs.length>0) {
 							var rhscell=cellrow_r[k];
-							if (rhscell.length!==2 || rhscell[0]!=='...') {
+							if (rhscell.length!==3 || rhscell[0]!=='...') {
 								logError("An ellipsis on the left must be matched by one in the corresponding place on the right.",rule.lineNumber);								
 							}
 						} 
 						break;
-					}  else if (object_dir==='random') {
+					}  else if (object_modifier==='random') {
 						logError("'random' cannot be matched on the left-hand side, it can only appear on the right",rule.lineNumber);
 						continue;
 					}
 
-					var object_name = cell_l[l + 1];
+					var object_dir = cell_l[l+1];
+					var object_name = cell_l[l + 2];
 					var object = state.objects[object_name];
 					var objectMask = state.objectMasks[object_name];
 					if (object) {
@@ -1483,8 +1502,14 @@ function rulesToMask(state) {
 						logError("Oops!  " +object_name.toUpperCase()+" not assigned to a layer.",rule.lineNumber);
 					}
 
-					if (object_dir==='no') {
+					if (object_modifier==='no') {
+					    if (object_dir !== '') {
+						logError("Directions cannot be matched on objects that aren't there!",rule.lineNumber);
+					    } else {
 						objectsMissing.ior(objectMask);
+					    }
+					} else if (object_dir === 'randomdir') {
+					    logError("'randomdir' does not make sense on the left-hand side.",rule.lineNumber);
 					} else {
 						var existingname = layersUsed_l[layerIndex];
 						if (existingname !== null) {
@@ -1514,10 +1539,10 @@ function rulesToMask(state) {
 					if (rhscell[0]==='...' && lhscell[0]!=='...' ) {
 						logError("An ellipsis on the right must be matched by one in the corresponding place on the left.",rule.lineNumber);								
 					}
-					for (var l=0;l<rhscell.length;l+=2) {
+					for (var l=0;l<rhscell.length;l+=3) {
 						var content=rhscell[l];
 						if (content==='...') {
-							if (rhscell.length!==2) {
+							if (rhscell.length!==3) {
 								logError("You can't have anything in with an ellipsis. Sorry.",rule.lineNumber);							
 							}
 						}
@@ -1548,14 +1573,16 @@ function rulesToMask(state) {
 				var randomMask_r = new BitVec(STRIDE_OBJ);
 				var postMovementsLayerMask_r = new BitVec(STRIDE_MOV);
 				var randomDirMask_r = new BitVec(STRIDE_MOV);
-				for (var l = 0; l < cell_r.length; l += 2) {
-					var object_dir = cell_r[l];
-					var object_name = cell_r[l + 1];
+				var randomObjectDir_r = '';
+				for (var l = 0; l < cell_r.length; l += 3) {
+				    var object_modifier = cell_r[l];
+					var object_dir = cell_r[l+1];
+					var object_name = cell_r[l + 2];
 
-					if (object_dir==='...') {
+					if (object_modifier==='...') {
 						//logError("spooky ellipsis found! (should never hit this)");
 						break;
-					} else if (object_dir==='random') {
+					} else if (object_modifier==='random') {
 						if (object_name in state.objectMasks) {
 							var mask = state.objectMasks[object_name];
 							randomMask_r.ior(mask);
@@ -1579,6 +1606,28 @@ function rulesToMask(state) {
 						} else {
 							logError('You want to spawn a random "'+object_name.toUpperCase()+'", but I don\'t know how to do that',rule.lineNumber);
 						}
+						if (object_dir.length>0) {
+						    if (randomObjectDir_r.length !== 0) {
+							logError("You can only specify one direction or set of directions for a random object to move.");
+						    } else {
+							randomObjectDir_r = object_dir;
+						    }
+						}
+						if (randomObjectDir_r.length>0) {
+						    for (layerIndex=0; layerIndex<layerCount; layerIndex++) {
+							if (layersUsedRand_r[layerIndex] === null) {
+							    continue;
+							}
+							postMovementsLayerMask_r.ishiftor(0x1f, 5*layerIndex);
+							if (randomObjectDir_r==='stationary') {
+							    movementsClear.ishiftor(0x1f, 5*layerIndex);
+							} if (randomObjectDir_r==='randomdir') {
+							    randomDirMask_r.ishiftor(dirMasks[randomObjectDir_r], 5 * layerIndex);
+							} else {
+							    movementsSet.ishiftor(dirMasks[randomObjectDir_r], 5 * layerIndex);
+							}
+						    }
+						}
 						continue;
 					}
 
@@ -1591,7 +1640,7 @@ function rulesToMask(state) {
 					}
 
 					
-					if (object_dir=='no') {
+					if (object_modifier=='no') {
 						objectsClear.ior(objectMask);
 					} else {
 						var existingname = layersUsed_r[layerIndex];
@@ -2021,13 +2070,14 @@ function printCellRow(cellRow) {
 			result += "| ";
 		}
 		var cell = cellRow[i];
-		for (var j=0;j<cell.length;j+=2) {
-			var direction = cell[j];
-			var object = cell[j+1]
-			if (direction==="...") {
-				result += direction+" ";
+		for (var j=0;j<cell.length;j+=3) {
+			var modifier = cell[j];
+			var direction = cell[j+1];
+			var object = cell[j+2]
+			if (modifier==="...") {
+				result += modifier+" ";
 			} else {
-				result += direction+" "+object+" ";
+				result += modifier+" " +direction+" "+object+" ";
 			}
 		}		
 	}
