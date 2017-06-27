@@ -1,4 +1,6 @@
-function makeGIF() {
+function makeGIF(useTransIn) {
+	var useTrans = (useTransIn === undefined ? true : useTransIn);
+	var prevData = undefined;
 	var randomseed = RandomGen.seed;
 	levelEditorOpened=false;
 	var targetlevel=curlevel;
@@ -13,6 +15,9 @@ function makeGIF() {
 	var encoder = new GIFEncoder();
 	encoder.setRepeat(0); //auto-loop
 	encoder.setDelay(200);
+	if (useTrans) {
+	    encoder.setDispose(1);
+	}
 	encoder.start();
 
 	compile(["loadLevel",curlevel],levelString,randomseed);
@@ -23,13 +28,14 @@ function makeGIF() {
 
 	gifRedraw();
 
-        var indexed = (gifColorTabHex.length <= 256);
+        var indexed = (gifColorTabHex.length <= (useTrans ? 255 : 256));
 
         if (indexed) {
-            encoder.setGCT(gifColorTab, -1);
+	    var trans = (useTrans ? gifGetTransparentIndex() : -1);
+            encoder.setGCT(gifColorTab, trans);
         }
 
-  	encoder.addFrame((indexed ? gifDataToIndexedImageData() : gifDataToImageData()), true);
+  	encoder.addFrame((indexed ? gifDataToIndexedImageDataWTrans(prevData) : gifDataToImageData()), true);
 	var autotimer=0;
 
   	for(var i=0;i<inputDat.length;i++) {
@@ -45,16 +51,22 @@ function makeGIF() {
 		} else {
 			processInput(val);
 		}
+		if (useTrans) {
+			prevData = gifData.concat([]);
+		}
 		gifRedraw();
-                encoder.addFrame((indexed ? gifDataToIndexedImageData() : gifDataToImageData()), true);
+		encoder.addFrame((indexed ? gifDataToIndexedImageDataWTrans(prevData) : gifDataToImageData()), true);
 		encoder.setDelay(realtimeframe?autotickinterval:repeatinterval);
 		autotimer+=repeatinterval;
 
 		while (againing) {
 			processInput(-1);
+			if (useTrans) {
+				prevData = gifData.concat([]);
+			}
 			gifRedraw();
 			encoder.setDelay(againinterval);
-                        encoder.addFrame((indexed ? gifDataToIndexedImageData() : gifDataToImageData()), true);
+			encoder.addFrame((indexed ? gifDataToIndexedImageDataWTrans(prevData) : gifDataToImageData()), true);
 		}
 	}
 

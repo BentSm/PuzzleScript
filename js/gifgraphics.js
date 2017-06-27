@@ -53,6 +53,10 @@ function gifResetColorTables() {
     gifColorTabHex = [];
 }
 
+function gifGetTransparentIndex() {
+    return colorLookupInTable("*000000"); // Intentionally not a normal color value
+}
+
 function gifRegenText() {
 	gifTextImages={};
 
@@ -178,6 +182,33 @@ function gifDataToIndexedImageData() {
     for (var j = 0; j < gifDataHeight; j++) {
         for (var i = 0; i < gifDataWidth; i++) {
             var color = gifData[i+j*gifDataWidth];
+            var elt = gifScale * (i + j * trueGIFWidth);
+            res.fill(color, elt, elt + gifScale);
+        }
+        for (i = 1; i < vHt; i++) {
+            res.copyWithin((j * gifScale + i) * trueGIFWidth, j * gifScale * trueGIFWidth, (j * gifScale + 1) * trueGIFWidth);
+        }
+    }
+    return res;
+}
+
+function gifDataToIndexedImageDataWTrans(prevData) {
+    if (prevData === undefined) {
+	return gifDataToIndexedImageData();
+    }
+    var res = new Uint8ClampedArray(trueGIFWidth * trueGIFHeight);
+    res.fill(gifGetTransparentIndex());
+    var vHt = gifScale;
+    if ("scanline" in state.metadata) {
+        vHt = (gifScale / 2) | 0;
+    }
+    for (var j = 0; j < gifDataHeight; j++) {
+        for (var i = 0; i < gifDataWidth; i++) {
+            var color = gifData[i+j*gifDataWidth];
+            var oldColor = prevData[i+j*gifDataWidth];
+	    if (color === oldColor) {
+		continue;
+	    }
             var elt = gifScale * (i + j * trueGIFWidth);
             res.fill(color, elt, elt + gifScale);
         }
