@@ -496,6 +496,10 @@ var testdata = [
 	[
 		"Synonym confusion",
 		["title Simple Block Pushing Game\nauthor Stephen Lavelle\nhomepage www.puzzlescript.net\n\n========\nOBJECTS\n========\n\nBackground\nRed\n\nPlayer\nOrange\n\nFloorB2\nYellow\n\nFloorB1\nGreen\n\nFloorMain\nBlue\n\n=======\nLEGEND\n=======\n\nFloorB2AndDown = FloorB2\nFloorB1AndDown = FloorB1 and FloorB2AndDown\nFloorMainAndDown = FloorMain and FloorB1AndDown\n\n. = Background\nP = Player\n\n=======\nSOUNDS\n=======\n\n================\nCOLLISIONLAYERS\n================\n\nBackground\nFloorB2\nFloorB1\nFloorMain, Player\n\n======\nRULES\n======\n\n==============\nWINCONDITIONS\n==============\n\nno Player\n\n=======\nLEVELS\n=======\n\n...\n..P\n",[1],"background:0,0,0,\nbackground player:1,0,0,\n",0,"1496933845000"]
+	],
+	[
+		"Random with movement",
+		["title My Game\n\n========\nOBJECTS\n========\n\nBackground\nGreen\n\nPlayer\nBlue\n\n=======\nLEGEND\n=======\n\n. = Background\nP = Player\n\n=======\nSOUNDS\n=======\n\n================\nCOLLISIONLAYERS\n================\n\nBackground\nPlayer\n\n======\nRULES\n======\n\n[ Player ] -> [ random right Player ]\n\n==============\nWINCONDITIONS\n==============\n\n=======\nLEVELS\n=======\n\nP.\n",[4],"background:0,background player:1,\n",0,"1498530408320.9463"]
 	]
 ];
 
