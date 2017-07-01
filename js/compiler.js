@@ -1566,8 +1566,10 @@ function rulesToMask(state) {
 
 				var objectsClear = new BitVec(STRIDE_OBJ);
 				var objectsSet = new BitVec(STRIDE_OBJ);
+				var allObjectsSet = new BitVec(STRIDE_OBJ);
 				var movementsClear = new BitVec(STRIDE_MOV);
 				var movementsSet = new BitVec(STRIDE_MOV);
+				var allMovementsSet = new BitVec(STRIDE_MOV);
 
 				var objectlayers_r = new BitVec(STRIDE_MOV);
 				var randomMask_r = new BitVec(STRIDE_OBJ);
@@ -1653,15 +1655,19 @@ function rulesToMask(state) {
 
 						layersUsed_r[layerIndex] = object_name;
 
-						if (object_dir.length>0) {
+						var layerMask = state.layerMasks[layerIndex];
+
+						if (object_dir.length>0 && movementsPresent.getshiftor(dirMasks[object_dir], 5 * layerIndex) !== dirMasks[object_dir]) {
 							postMovementsLayerMask_r.ishiftor(0x1f, 5*layerIndex);
 						}
 
-						var layerMask = state.layerMasks[layerIndex];
-
 						if (object) {
-							objectsSet.ibitset(object.id);
-							objectsClear.ior(layerMask);
+							if (!objectMask.bitsSetInArray(objectsPresent.data)) {
+								objectsSet.ibitset(object.id);
+								objectsClear.ior(layerMask);
+							} else {
+								allObjectsSet.ibitset(object.id);
+							}
 							objectlayers_r.ishiftor(0x1f, 5*layerIndex);
 						} else {
 							// shouldn't need to do anything here...
@@ -1670,17 +1676,24 @@ function rulesToMask(state) {
 							movementsClear.ishiftor(0x1f, 5*layerIndex);
 						} if (object_dir==='randomdir') {
 							randomDirMask_r.ishiftor(dirMasks[object_dir], 5 * layerIndex);
-						} else {						
+						} else if (movementsPresent.getshiftor(dirMasks[object_dir], 5 * layerIndex) !== dirMasks[object_dir]) {
 							movementsSet.ishiftor(dirMasks[object_dir], 5 * layerIndex);
-						};
+						} else {
+							allMovementsSet.ishiftor(dirMasks[object_dir], 5 * layerIndex);
+						}
 					}
 				}
 
-				if (!(objectsPresent.bitsSetInArray(objectsSet.data))) {
+				allObjectsSet.ior(objectsSet);
+				allMovementsSet.ior(movementsSet);
+
+				if (!(objectsPresent.bitsSetInArray(allObjectsSet.data))) {
 					objectsClear.ior(objectsPresent); // clear out old objects
+					objectsClear.iclear(allObjectsSet); // but not new ones
 				}
-				if (!(movementsPresent.bitsSetInArray(movementsSet.data))) {
-					movementsClear.ior(movementsPresent); // ... and movements
+				if (!(movementsPresent.bitsSetInArray(allMovementsSet.data))) {
+				    movementsClear.ior(movementsPresent); // ... and movements
+				    movementsClear.iclear(allMovementsSet); // but not new ones
 				}
 
 				for (var l = 0; l < layerCount; l++) {
@@ -1694,7 +1707,7 @@ function rulesToMask(state) {
 				objectlayers_l.iclear(objectlayers_r);
 
 				postMovementsLayerMask_r.ior(objectlayers_l);
-				if (objectsClear || objectsSet || movementsClear || movementsSet || postMovementsLayerMask_r) {
+				if (!objectsClear.iszero() || !objectsSet.iszero() || !movementsClear.iszero() || !movementsSet.iszero() || !postMovementsLayerMask_r.iszero() || !randomMask_r.iszero() || !randomDirMask_r.iszero()) {
 					// only set a replacement if something would change
 					cellrow_l[k].replacement = new CellReplacement([objectsClear, objectsSet, movementsClear, movementsSet, postMovementsLayerMask_r, randomMask_r, randomDirMask_r]);
 				}
