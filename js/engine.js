@@ -409,6 +409,7 @@ function loadLevelFromLevelDat(state,leveldat,randomseed) {
     againing=false;
     if (leveldat===undefined) {
     	consolePrint("Trying to access a level that doesn't exist.",true);
+	goToTitleScreen();
     	return;
     }
     if (leveldat.message===undefined) {
@@ -473,7 +474,7 @@ function loadLevelFromState(state,levelindex,randomseed) {
     var leveldat = state.levels[levelindex];    
 	curlevel=levelindex;
 	curlevelTarget=null;
-    if (leveldat.message===undefined) {
+    if (leveldat!==undefined && leveldat.message===undefined) {
 	    if (levelindex=== 0){ 
 			tryPlayStartLevelSound();
 		} else {
@@ -599,7 +600,7 @@ function setGameState(_state, command, randomseed) {
 	if (command===undefined) {
 		command=["restart"];
 	}
-	if (state.levels.length===0 && command.length>0 && command[0]==="rebuild")  {
+	if ((state.levels.length===0 || _state.levels.length===0) && command.length>0 && command[0]==="rebuild")  {
 		command=["restart"];
 	}
 	if (randomseed===undefined) {
@@ -608,6 +609,7 @@ function setGameState(_state, command, randomseed) {
 	RandomGen = new RNG(randomseed);
 
 	state = _state;
+
     window.console.log('setting game state :D ');
     if (command[0]!=="rebuild"){
     	backups=[];
