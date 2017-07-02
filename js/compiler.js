@@ -356,7 +356,7 @@ function generateExtraMembers(state) {
 				    if (objectLayers[n].length === 1) {
 					layerObjects.push(objectLayers[n][0]);
 				    } else {
-					var mergedLayerName = key + "$layer" + n;
+					var mergedLayerName = key + "(layer:" + n + ")";
 					propertiesDict[mergedLayerName] = objectLayers[n];
 					layerObjects.push(mergedLayerName);
 					state.propertiesSingleLayer[mergedLayerName] = parseInt(n);
