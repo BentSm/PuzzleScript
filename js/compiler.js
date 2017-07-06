@@ -204,12 +204,16 @@ function generateExtraMembers(state) {
                     } else {
                     	if (o.layer===undefined) {
                     		logError('Object "' + n.toUpperCase() + '" has been defined, but not assigned to a layer.',dat.lineNumber);
-                    	} else {                    		
-	                        logError(
-	                            'Trying to create an aggregate object (defined in the legend) with both "'
-	                            + n.toUpperCase() + '" and "' + state.idDict[mask[o.layer]].toUpperCase() + '", which are on the same layer and therefore can\'t coexist.',
-	                            dat.lineNumber
-	                            );
+                    	} else {
+                    		var n1 = n.toUpperCase();
+                    		var n2 = state.idDict[mask[o.layer]].toUpperCase();
+                    		if (n1!==n2){
+		                        logError(
+		                            'Trying to create an aggregate object (defined in the legend) with both "'
+		                            + n1 + '" and "' + n2 + '", which are on the same layer and therefore can\'t coexist.',
+		                            dat.lineNumber
+		                            );
+		                    }
 	                    }
                     }
                 }
@@ -1182,7 +1186,7 @@ function concretizePropertyRule(state, rule,lineNumber) {
 
 
 	if (rhsPropertyRemains.length > 0) {
-		logError('This rule has a property on the right-hand side, \"'+ rhsPropertyRemains + "\", that can't be inferred from the left-hand side.  (either for every property on the right there has to be a corresponding one on the left in the same cell, OR, if there's a single occurrence of a particular property name on the left, all properties of the same name on the right are assumed to be the same).",lineNumber);
+		logError('This rule has a property on the right-hand side, \"'+ rhsPropertyRemains.toUpperCase() + "\", that can't be inferred from the left-hand side.  (either for every property on the right there has to be a corresponding one on the left in the same cell, OR, if there's a single occurrence of a particular property name on the left, all properties of the same name on the right are assumed to be the same).",lineNumber);
 	}
 
 	return result;
@@ -1587,23 +1591,27 @@ function rulesToMask(state) {
 					} else if (object_modifier==='random') {
 						if (object_name in state.objectMasks) {
 							var mask = state.objectMasks[object_name];
-							randomMask_r.ior(mask);
-							var values;
-							if (state.propertiesDict.hasOwnProperty(object_name)) {
-								values = state.propertiesDict[object_name];
-							} else {
-								values = [object_name];
-							}
-							for (var m = 0; m < values.length; m++) {
-								var subobject = values[m];
-								var layerIndex = state.objects[subobject].layer|0;
-								var existingname = layersUsed_r[layerIndex];
-								if (existingname !== null) {
-									logError('Rule matches object types that can\'t overlap: "' + subobject.toUpperCase() + '" and "' + existingname.toUpperCase() + '".', rule.lineNumber);
-								}
-
-								layersUsedRand_r[layerIndex] = subobject;
-							}
+ 							randomMask_r.ior(mask);
+ 							var values;
+ 							if (state.propertiesDict.hasOwnProperty(object_name)) {
+ 								values = state.propertiesDict[object_name];
+ 							} else {
+ 								values = [object_name];
+ 							}
+ 							for (var m = 0; m < values.length; m++) {
+ 								var subobject = values[m];
+ 								var layerIndex = state.objects[subobject].layer|0;
+ 								var existingname = layersUsed_r[layerIndex];
+ 								if (existingname !== null) {
+ 									var o1 = subobject.toUpperCase();
+ 									var o2 = existingname.toUpperCase();
+ 									if (o1!==o2) {
+ 										logWarning("This rule may try to spawn a "+o1+" with random, but also requires a "+o2+" be here, which is on the same layer - they shouldn't be able to coexist!", rule.lineNumber); 									
+ 									}
+ 								}
+ 
+ 								layersUsedRand_r[layerIndex] = subobject;
+ 							}                      
 
 						} else {
 							logError('You want to spawn a random "'+object_name.toUpperCase()+'", but I don\'t know how to do that',rule.lineNumber);
@@ -1647,8 +1655,9 @@ function rulesToMask(state) {
 					} else {
 						var existingname = layersUsed_r[layerIndex];
 						if (existingname === null) {
-							existingname = layersUsedRand_r[layerIndex];
-						}
+ 							existingname = layersUsedRand_r[layerIndex];
+ 						}
+
 						if (existingname !== null) {
 							logError('Rule matches object types that can\'t overlap: "' + object_name.toUpperCase() + '" and "' + existingname.toUpperCase() + '".', rule.lineNumber);
 						}
