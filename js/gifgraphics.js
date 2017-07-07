@@ -192,31 +192,88 @@ function gifDataToIndexedImageData() {
     return res;
 }
 
-function gifDataToIndexedImageDataWTrans(prevData) {
+function gifDataToIndexedImageDataWTransPlus(prevData, useTrans) {
     if (prevData === undefined) {
-	return gifDataToIndexedImageData();
+	return { data: gifDataToIndexedImageData(), x: 0, y: 0, w: trueGIFWidth, h: trueGIFHeight, empty: false };
     }
-    var res = new Uint8ClampedArray(trueGIFWidth * trueGIFHeight);
-    res.fill(gifGetTransparentIndex());
+    var minx = -1;
+    var miny = -1;
+    var maxx = -1;
+    var maxy = -1;
+    topScan: for (var j = 0; j < gifDataHeight; j++) {
+        for (var i = 0; i < gifDataWidth; i++) {
+            var color = gifData[i+j*gifDataWidth];
+            var oldColor = prevData[i+j*gifDataWidth];
+	    if (color != oldColor) {
+		miny = j;
+		maxx = minx = i;
+		break topScan;
+	    }
+	}
+    }
+    if (miny == -1) {
+	var res = new Uint8ClampedArray(1);
+	res[0] = (useTrans ? gifGetTransparentIndex() : colorLookupInTable(gifData[0]));
+	return { data: res, x: 0, y: 0, w: 1, h: 1, empty: true };
+    }
+    maxy = miny;
+    bottomScan: for (var j = gifDataHeight - 1; j > miny; j--) {
+	for (var i = 0; i < gifDataWidth; i++) {
+            var color = gifData[i+j*gifDataWidth];
+            var oldColor = prevData[i+j*gifDataWidth];
+	    if (color != oldColor) {
+		maxy = j;
+		minx = (i < minx ? i : minx);
+		maxx = (i > maxx ? i : maxx);
+		break bottomScan;
+	    }
+	}
+    }
+    for (var j = miny + 1; j < maxy; j++) {
+	for (var i = 0; i < minx; i++) {
+            var color = gifData[i+j*gifDataWidth];
+            var oldColor = prevData[i+j*gifDataWidth];
+	    if (color != oldColor) {
+		minx = i;
+		break;
+	    }
+	}
+    }
+    for (var j = miny; j <= maxy; j++) {
+	for (var i = gifDataWidth - 1; i > maxx; i--) {
+            var color = gifData[i+j*gifDataWidth];
+            var oldColor = prevData[i+j*gifDataWidth];
+	    if (color != oldColor) {
+		maxx = i;
+		break;
+	    }
+	}
+    }
+    var cWidth = maxx - minx + 1;
+    var cHeight = maxy - miny + 1;
+    var trueWidth = cWidth * gifScale;
+    var trueHeight = cHeight * gifScale;
+    var res = new Uint8ClampedArray(trueWidth * trueHeight);
+    res.fill((useTrans ? gifGetTransparentIndex() : colorLookupInTable(state.bgcolor)));
     var vHt = gifScale;
     if ("scanline" in state.metadata) {
         vHt = (gifScale / 2) | 0;
     }
-    for (var j = 0; j < gifDataHeight; j++) {
-        for (var i = 0; i < gifDataWidth; i++) {
-            var color = gifData[i+j*gifDataWidth];
-            var oldColor = prevData[i+j*gifDataWidth];
-	    if (color === oldColor) {
+    for (var j = 0; j < cHeight; j++) {
+        for (var i = 0; i < cWidth; i++) {
+            var color = gifData[i+minx+(j+miny)*gifDataWidth];
+            var oldColor = prevData[i+minx+(j+miny)*gifDataWidth];
+	    if (color === oldColor && useTrans) {
 		continue;
 	    }
-            var elt = gifScale * (i + j * trueGIFWidth);
+            var elt = gifScale * (i + j * trueWidth);
             res.fill(color, elt, elt + gifScale);
         }
         for (i = 1; i < vHt; i++) {
-            res.copyWithin((j * gifScale + i) * trueGIFWidth, j * gifScale * trueGIFWidth, (j * gifScale + 1) * trueGIFWidth);
+            res.copyWithin((j * gifScale + i) * trueWidth, j * gifScale * trueWidth, (j * gifScale + 1) * trueWidth);
         }
     }
-    return res;
+    return { data: res, x: minx * gifScale, y: miny * gifScale, w: trueWidth, h: trueHeight, empty: false };
 }
 
 function gifDrawImage(sprite, xoff, yoff) {

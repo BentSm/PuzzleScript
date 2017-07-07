@@ -159,7 +159,7 @@
 		* BitmapData object to be treated as a GIF's frame
 		*/
 		
-		var addFrame = exports.addFrame = function addFrame(im/*BitmapData*/, is_imageData)/*Boolean*/
+		var addFrame = exports.addFrame = function addFrame(im/*BitmapData*/, is_imageData/*Boolean*/, x_origin_in, y_origin_in, width_in, height_in)
 		{
 			
 			if ((im == null) || !started || out == null) 
@@ -169,6 +169,10 @@
 			}
 			
 		    var ok/*Boolean*/ = true;
+		    var x_origin = (x_origin_in === undefined ? 0 : x_origin_in);
+		    var y_origin = (y_origin_in === undefined ? 0 : y_origin_in);
+		    var wd = (width_in === undefined ? width : width_in);
+		    var ht = (height_in === undefined ? height : height_in);
 			
 		    try {
 				if(!is_imageData){
@@ -196,9 +200,9 @@
 		      }
 			  
 			  writeGraphicCtrlExt(); // write graphic control extension
-		      writeImageDesc(); // image descriptor
+		      writeImageDesc(x_origin, y_origin, wd, ht); // image descriptor
 		      if (!firstFrame && !prePaletted) writePalette(); // local color table
-		      writePixels(); // encode and write pixel data
+		      writePixels(wd, ht); // encode and write pixel data
 		      firstFrame = false;
 		    } catch (e/*Error*/) {
 		      ok = false;
@@ -490,14 +494,14 @@
 		* Writes Image Descriptor
 		*/
 		
-		var writeImageDesc = function writeImageDesc()/*void*/
+		var writeImageDesc = function writeImageDesc(x_origin, y_origin, wd, ht)/*void*/
 		{
 		  	
 		    out.writeByte(0x2c); // image separator
-		   	WriteShort(0); // image position x,y = 0,0
-		    WriteShort(0);
-		    WriteShort(width); // image size
-		    WriteShort(height);
+		   	WriteShort(x_origin); // image position x,y
+		    WriteShort(y_origin);
+		    WriteShort(wd); // image size
+		    WriteShort(ht);
 
 		    // packed fields
 		    if (firstFrame || prePaletted) {
@@ -576,10 +580,10 @@
 		* Encodes and writes pixel data
 		*/
 		
-		var writePixels = function writePixels()/*void*/
+	    var writePixels = function writePixels(wd, ht)/*void*/
 		{
 			
-		    var myencoder/*LZWEncoder*/ = new LZWEncoder(width, height, indexedPixels, colorDepth);
+		    var myencoder/*LZWEncoder*/ = new LZWEncoder(wd, ht, indexedPixels, colorDepth);
 		    myencoder.encode(out);
 			
 		}
