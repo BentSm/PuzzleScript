@@ -197,6 +197,8 @@ function redraw() {
     if (spriteimages===undefined) {
         regenSpriteImages();
     }
+    ctx.fillStyle = state.bgcolor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     /*
     if (textMode) {
         ctx.fillStyle = state.bgcolor;
