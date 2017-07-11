@@ -535,8 +535,8 @@ function directionalRule(rule) {
 		}
 		for (var j=0;j<cellRow.length;j++) {
 			var cell = cellRow[j];
-			for (var k=0;k<cell.length;k+=3) {
-				if (relativeDirections.indexOf(cell[k+1])>=0) {
+			for (var k=0;k<cell.length;k++) {
+				if (relativeDirections.indexOf(cell[k].direction)>=0) {
 					return true;
 				}
 			}
@@ -549,8 +549,8 @@ function directionalRule(rule) {
 		}
 		for (var j=0;j<cellRow.length;j++) {
 			var cell = cellRow[j];
-			for (var k=0;k<cell.length;k+=3) {
-				if (relativeDirections.indexOf(cell[k+1])>=0) {
+			for (var k=0;k<cell.length;k++) {
+				if (relativeDirections.indexOf(cell[k].direction)>=0) {
 					return true;
 				}
 			}
@@ -567,6 +567,36 @@ function findIndexAfterToken(str,tokens,tokenIndex){
 		curIndex=str.indexOf(token,curIndex)+token.length;
 	}
 	return curIndex;
+}
+
+function CellObject() {
+    this.modifier = undefined;
+    this.direction = undefined;
+    this.object = undefined;
+}
+
+CellObject.prototype.hasModifier = function() {
+    return (this.modifier !== undefined);
+}
+
+CellObject.prototype.hasDirection = function() {
+    return (this.direction !== undefined);
+}
+
+CellObject.prototype.hasObject = function() {
+    return (this.object !== undefined);
+}
+
+CellObject.prototype.isEmpty = function() {
+    return !(this.hasModifier() || this.hasDirection() || this.hasObject());
+}
+
+CellObject.prototype.clone = function() {
+    var newObj = new CellObject();
+    newObj.modifier = this.modifier;
+    newObj.direction = this.direction;
+    newObj.object = this.object;
+    return newObj;
 }
 
 function processRuleString(rule, state, curRules) 
@@ -614,6 +644,7 @@ function processRuleString(rule, state, curRules)
 
 	var curcell = null; // [up, cat, down mouse]
 	var curcellrow = []; // [  [up, cat]  [ down, mouse ] ]
+	var curobj = null;
 
 	var incellrow = false;
 
@@ -693,40 +724,35 @@ function processRuleString(rule, state, curRules)
 					}
 					incellrow = true;
 					curcell = [];
+					curobj = new CellObject();
 				} else if (reg_directions_only.exec(token)) {
-					if (curcell.length % 3 == 2) {
+					if (curobj.hasDirection()) {
 						logError("Error, an item can only have one direction/action at a time, but you're looking for several at once!", lineNumber);
 					} else if (!incellrow) {
 						logWarning("Invalid syntax. Directions should be placed at the start of a rule.", lineNumber);
-  					} else if (curcell.length % 3 == 1) {
-						curcell.push(token);
-					} else {
-					    curcell.push('', token);
+  					} else {
+						curobj.direction = token;
 					}
 				} else if (reg_specials_only.exec(token)) {
-				    if (curcell.length % 3 == 1) {
+				    if (curobj.hasModifier()) {
 					logError("You can have at most one special modifier on an object.", lineNumber);
 				    } else if (!incellrow) {
 					logError("A special modifier must apply to an object.", lineNumber);
-				    } else if (curcell.length % 3 == 0) {
-					curcell.push(token);
 				    } else {
-					curcell[curcell.length-2] = token;
+					curobj.modifier = token;
 				    }
 				} else if (token == '|') {
-					if (curcell.length % 3 != 0) {
-						logError('In a rule, if you specify a force, it has to act on an object.', lineNumber);
+					if (!curobj.isEmpty()) {
+						logError('In a rule, if you specify a force (or modifier), it has to act on an object.', lineNumber);
 					} else {
 						curcellrow.push(curcell);
 						curcell = [];
 					}
 				} else if (token === ']') {
-					if (curcell.length % 3 != 0) {
-						if (curcell[0]==='...') {
-							logError('Cannot end a rule with ellipses.', lineNumber);
-						} else {
-							logError('In a rule, if you specify a force, it has to act on an object.', lineNumber);
-						}
+					if (!curobj.isEmpty()) {
+						logError('In a rule, if you specify a force (or modifier), it has to act on an object.', lineNumber);
+					} else if (curcell.length > 0 && curcell[0].object === '...') {
+						logError('Cannot end a rule with ellipses.', lineNumber);
 					} else {
 						curcellrow.push(curcell);
 						curcell = [];
@@ -751,20 +777,20 @@ function processRuleString(rule, state, curRules)
 					if (!incellrow) {
  						logWarning("Invalid token "+token.toUpperCase() +". Object names should only be used within cells (square brackets).", lineNumber);
  					}
- 					else if (curcell.length % 3 == 0) {
-					    curcell.push('','',token);
-					} else if (curcell.length % 3 == 1) {
-					    curcell.push('',token);
-					} else if (curcell.length % 3 == 2) {
-					    curcell.push(token);
+ 					else {
+					    curobj.object = token;
+					    curcell.push(curobj);
+					    curobj = new CellObject();
 					}
 				} else if (token==='...') {
 					if (!incellrow) {
  						logWarning("Invalid syntax, ellipses should only be used within cells (square brackets).", lineNumber);
- 					} else {
- 						curcell.push(token);
- 						curcell.push(token);
-						curcell.push(token);
+ 					} else if (!curobj.isEmpty()) {
+						logError("Ellipses can't have modifiers or directions.", lineNumber);
+					} else {
+ 						curobj.object = '...';
+						curcell.push(curobj);
+						curobj = new CellObject();
  					}
 				} else if (commandwords.indexOf(token)>=0) {
 					if (rhs===false) {
@@ -844,7 +870,7 @@ function processRuleString(rule, state, curRules)
 }
 
 function deepCloneHS(HS) {
-	var cloneHS = HS.map(function(arr) {return arr.map(function(deepArr) {return deepArr.slice();});});
+	var cloneHS = HS.map(function(arr) {return arr.map(function(deepArr) {return deepArr.map(function(obj) {return obj.clone();});});});
 	return cloneHS;
 }
 
@@ -932,7 +958,7 @@ function rulesToArray(state) {
 function containsEllipsis(rule) {
 	for (var i=0;i<rule.lhs.length;i++) {
 		for (var j=0;j<rule.lhs[i].length;j++) {
-			if (rule.lhs[i][j][1]==='...')
+			if (rule.lhs[i][j].length > 0 && rule.lhs[i][j][0].object ==='...')
 				return true;
 		}
 	}
@@ -962,10 +988,9 @@ function rewriteUpLeftRules(rule) {
 
 function getPropertiesFromCell(state,cell ) {
 	var result = [];
-	for (var j = 0; j < cell.length; j += 3) {
-		var modifier = cell[j];
-		var name = cell[j+2];
-		if (modifier!=="") {
+	for (var j = 0; j < cell.length; j++) {
+		var name = cell[j].object;
+		if (cell[j].hasModifier()) {
 			continue;
 		}
 		if (name in state.propertiesDict) {
@@ -978,9 +1003,9 @@ function getPropertiesFromCell(state,cell ) {
 //returns you a list of object names in that cell that're moving
 function getMovings(state,cell ) {
 	var result = [];
-	for (var j = 0; j < cell.length; j += 3) {
-		var dir = cell[j+1];
-		var name = cell[j+2];
+	for (var j = 0; j < cell.length; j++) {
+		var dir = cell[j].direction;
+		var name = cell[j].object;
 		if (dir in directionaggregates) {
 			result.push([name,dir]);
 		}
@@ -989,49 +1014,46 @@ function getMovings(state,cell ) {
 }
 
 function concretizePropertyInCell(cell ,property, concreteType) {
-	for (var j = 0; j < cell.length; j += 3) {
-		if (cell[j+2] === property && cell[j]!=="random") {
-			cell[j+2] = concreteType;
+	for (var j = 0; j < cell.length; j++) {
+		if (cell[j].object === property && cell[j].modifier!=="random") {
+			cell[j].object = concreteType;
 		}
 	}
 }
 
 function concretizeMovingInCell(cell , ambiguousMovement, nameToMove, concreteDirection) {
-	for (var j = 0; j < cell.length; j += 3) {
-		if (cell[j+1]===ambiguousMovement && cell[j+2] === nameToMove) {
-			cell[j+1] = concreteDirection;
+	for (var j = 0; j < cell.length; j++) {
+		if (cell[j].direction===ambiguousMovement && cell[j].object === nameToMove) {
+			cell[j].direction = concreteDirection;
 		}
 	}
 }
 
 function concretizeMovingInCellByAmbiguousMovementName(cell ,ambiguousMovement, concreteDirection) {
-	for (var j = 0; j < cell.length; j += 3) {
-		if (cell[j+1] === ambiguousMovement) {
-			cell[j+1] = concreteDirection;
+	for (var j = 0; j < cell.length; j++) {
+		if (cell[j].direction === ambiguousMovement) {
+			cell[j].direction = concreteDirection;
 		}
 	}
 }
 
 function expandNoPrefixedProperties(state, cell) {
 	var expanded = [];
-	for (var i=0;i<cell.length;i+=3)  {
-		var modifier = cell[i];
-		var dir = cell[i+1];
-		var name = cell[i+2];
+	for (var i=0;i<cell.length;i++)  {
+		var modifier = cell[i].modifier;
+		var name = cell[i].object;
 
 		if ( modifier ==='no' && (name in state.propertiesDict)) {
 			var aliases = state.propertiesDict[name];
 			for (var j=0;j<aliases.length;j++) {
 				var alias = aliases[j];
-				expanded.push(modifier);
-				expanded.push(dir);
-				expanded.push(alias);
+				var aliasObject = cell[i].clone();
+				aliasObject.object = alias;
+				expanded.push(aliasObject);
 			}
 		} else {
-		    expanded.push(modifier);
-			expanded.push(dir);
-			expanded.push(name);
-		} 
+			expanded.push(cell[i].clone());
+		}
 	}
 	return expanded;
 }
@@ -1335,18 +1357,18 @@ function rephraseSynonyms(state,rule) {
 		var cellrow_r = rule.rhs[i];
 		for (var j = 0; j < cellrow_l.length; j++) {
 			var cell_l = cellrow_l[j];
-			for (var k = 2; k < cell_l.length; k += 3) {
-				var name = cell_l[k];
+			for (var k = 0; k < cell_l.length; k++) {
+				var name = cell_l[k].object;
 				if (name in state.synonymsDict) {
-					cell_l[k] = state.synonymsDict[cell_l[k]];
+					cell_l[k].object = state.synonymsDict[name];
 				}
 			}
 			if (rule.rhs.length>0) {
 				var cell_r = cellrow_r[j];
-				for (var k = 2; k < cell_r.length; k += 3) {
-					var name = cell_r[k];
+				for (var k = 0; k < cell_r.length; k++) {
+					var name = cell_r[k].object;
 					if (name in state.synonymsDict) {
-						cell_r[k] = state.synonymsDict[cell_r[k]];
+						cell_r[k].object = state.synonymsDict[name];
 					}
 				}
 			}
@@ -1372,20 +1394,20 @@ function atomizeAggregates(state, rule) {
 }
 
 function atomizeCellAggregates(state, cell, lineNumber) {
-	for (var i = 0; i < cell.length; i += 3) {
-		var modifier =cell[i];
-		var dir =cell[i+1];
-		var c = cell[i+2];
+	for (var i = 0; i < cell.length; i ++) {
+		var modifier =cell[i].modifier;
+		var dir =cell[i].direction;
+		var c = cell[i].object;
 		if (c in state.aggregatesDict) {
 			if (modifier==='no') {
 				logError("You cannot use 'no' to exclude the aggregate object " +c.toUpperCase()+" (defined using 'AND'), only regular objects, or properties (objects defined using 'OR').  If you want to do this, you'll have to write it out yourself the long way.",lineNumber);
 			}
 			var equivs = state.aggregatesDict[c];
-			cell[i+2] = equivs[0];
+			cell[i].object = equivs[0];
 			for (var j= 1; j < equivs.length; j++) {
-			    cell.push(modifier);//push the modifier
-			    cell.push(dir);//push the direction
-				cell.push(equivs[j]);
+			    var equivObject = cell[i].clone();
+			    equivObject.object = equivs[j];
+			    cell.push(equivObject);
 			}
 		}
 	}
@@ -1418,11 +1440,11 @@ var relativeDict = {
 };
 
 function absolutifyRuleCell(forward, cell) {
-	for (var i = 1; i < cell.length; i += 3) {
-		var c = cell[i];
+	for (var i = 0; i < cell.length; i++) {
+		var c = cell[i].direction;
 		var index = relativeDirs.indexOf(c);
 		if (index >= 0) {
-			cell[i] = relativeDict[forward][index];		
+			cell[i].direction = relativeDict[forward][index];
 		}
 	}
 }
@@ -1444,7 +1466,7 @@ var dirMasks = {
 	'moving': parseInt('01111', 2),
 	'randomdir': parseInt('00101', 2),
 	'action' : parseInt('10000', 2),
-	'' : parseInt('00000',2)
+	'undefined' : parseInt('00000',2)
 };
 
 function rulesToMask(state) {
@@ -1472,28 +1494,28 @@ function rulesToMask(state) {
 				var movementsMissing = new BitVec(STRIDE_MOV);
 
 				var objectlayers_l = new BitVec(STRIDE_MOV);
-				for (var l = 0; l < cell_l.length; l += 3) {
-					var object_modifier = cell_l[l];
-					if (object_modifier==='...') {
+				for (var l = 0; l < cell_l.length; l++) {
+					var object_modifier = cell_l[l].modifier;
+					if (cell_l[l].object==='...') {
 						objectsPresent = ellipsisPattern;
-						if (cell_l.length!==3) {
+						if (cell_l.length!==1) {
 							logError("You can't have anything in with an ellipsis. Sorry.",rule.lineNumber);
 						} else if ((k===0)||(k===cellrow_l.length-1)) {
 							logError("There's no point in putting an ellipsis at the very start or the end of a rule",rule.lineNumber);
 						} else if (rule.rhs.length>0) {
 							var rhscell=cellrow_r[k];
-							if (rhscell.length!==3 || rhscell[0]!=='...') {
-								logError("An ellipsis on the left must be matched by one in the corresponding place on the right.",rule.lineNumber);								
+							if (rhscell.length!==1 || rhscell[0].object!=='...') {
+								logError("An ellipsis on the left must be matched by one in the corresponding place on the right.",rule.lineNumber);
 							}
-						} 
+						}
 						break;
 					}  else if (object_modifier==='random') {
 						logError("'random' cannot be matched on the left-hand side, it can only appear on the right",rule.lineNumber);
 						continue;
 					}
 
-					var object_dir = cell_l[l+1];
-					var object_name = cell_l[l + 2];
+					var object_dir = cell_l[l].direction;
+					var object_name = cell_l[l].object;
 					var object = state.objects[object_name];
 					var objectMask = state.objectMasks[object_name];
 					if (object) {
@@ -1507,7 +1529,7 @@ function rulesToMask(state) {
 					}
 
 					if (object_modifier==='no') {
-					    if (object_dir !== '') {
+					    if (object_dir !== undefined) {
 						logError("Directions cannot be matched on objects that aren't there!",rule.lineNumber);
 					    } else {
 						objectsMissing.ior(objectMask);
@@ -1540,14 +1562,14 @@ function rulesToMask(state) {
 				if (rule.rhs.length>0) {
 					var rhscell = cellrow_r[k];
 					var lhscell = cellrow_l[k];
-					if (rhscell[0]==='...' && lhscell[0]!=='...' ) {
-						logError("An ellipsis on the right must be matched by one in the corresponding place on the left.",rule.lineNumber);								
+					if (rhscell.length > 0 && rhscell[0].object==='...' && (lhscell.length === 0 || lhscell[0].object!=='...')) {
+						logError("An ellipsis on the right must be matched by one in the corresponding place on the left.",rule.lineNumber);
 					}
-					for (var l=0;l<rhscell.length;l+=3) {
-						var content=rhscell[l];
+					for (var l=0;l<rhscell.length;l++) {
+						var content=rhscell[l].object;
 						if (content==='...') {
-							if (rhscell.length!==3) {
-								logError("You can't have anything in with an ellipsis. Sorry.",rule.lineNumber);							
+							if (rhscell.length!==1) {
+								logError("You can't have anything in with an ellipsis. Sorry.",rule.lineNumber);
 							}
 						}
 					}
@@ -1579,16 +1601,13 @@ function rulesToMask(state) {
 				var randomMask_r = new BitVec(STRIDE_OBJ);
 				var postMovementsLayerMask_r = new BitVec(STRIDE_MOV);
 				var randomDirMask_r = new BitVec(STRIDE_MOV);
-				var randomObjectDir_r = '';
-				for (var l = 0; l < cell_r.length; l += 3) {
-				    var object_modifier = cell_r[l];
-					var object_dir = cell_r[l+1];
-					var object_name = cell_r[l + 2];
+				var randomObjectDir_r = undefined;
+				for (var l = 0; l < cell_r.length; l++) {
+					var object_modifier = cell_r[l].modifier;
+					var object_dir = cell_r[l].direction;
+					var object_name = cell_r[l].object;
 
-					if (object_modifier==='...') {
-						//logError("spooky ellipsis found! (should never hit this)");
-						break;
-					} else if (object_modifier==='random') {
+					if (object_modifier==='random') {
 						if (object_name in state.objectMasks) {
 							var mask = state.objectMasks[object_name];
  							randomMask_r.ior(mask);
@@ -1616,14 +1635,14 @@ function rulesToMask(state) {
 						} else {
 							logError('You want to spawn a random "'+object_name.toUpperCase()+'", but I don\'t know how to do that',rule.lineNumber);
 						}
-						if (object_dir.length>0) {
-						    if (randomObjectDir_r.length !== 0) {
+						if (object_dir !== undefined) {
+						    if (randomObjectDir_r !== undefined) {
 							logError("You can only specify one direction or set of directions for a random object to move.");
 						    } else {
 							randomObjectDir_r = object_dir;
 						    }
 						}
-						if (randomObjectDir_r.length>0) {
+						if (randomObjectDir_r !== undefined) {
 						    for (layerIndex=0; layerIndex<layerCount; layerIndex++) {
 							if (layersUsedRand_r[layerIndex] === null) {
 							    continue;
@@ -1666,7 +1685,7 @@ function rulesToMask(state) {
 
 						var layerMask = state.layerMasks[layerIndex];
 
-						if (object_dir.length>0 && movementsPresent.getshiftor(dirMasks[object_dir], 5 * layerIndex) !== dirMasks[object_dir]) {
+						if (object_dir !== undefined && movementsPresent.getshiftor(dirMasks[object_dir], 5 * layerIndex) !== dirMasks[object_dir]) {
 							postMovementsLayerMask_r.ishiftor(0x1f, 5*layerIndex);
 						}
 
@@ -2092,16 +2111,12 @@ function printCellRow(cellRow) {
 			result += "| ";
 		}
 		var cell = cellRow[i];
-		for (var j=0;j<cell.length;j+=3) {
-			var modifier = cell[j];
-			var direction = cell[j+1];
-			var object = cell[j+2]
-			if (modifier==="...") {
-				result += modifier+" ";
-			} else {
-				result += modifier+" " +direction+" "+object+" ";
-			}
-		}		
+		for (var j=0;j<cell.length;j++) {
+			var modifier = cell[j].modifier;
+			var direction = cell[j].direction;
+			var object = cell[j].object;
+			result += (modifier!==undefined ? modifier+" " : "") +(direction!==undefined ? direction+" " : "")+object+" ";
+		}
 	}
 	result +="] ";
 	return result;
