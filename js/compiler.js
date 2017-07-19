@@ -719,17 +719,17 @@ function processRuleString(rule, state, curRules)
 			}
 			case 1: {
 				if (token == '[') {
-					if (curcellrow.length > 0) {
-						logError('Error, malformed cell rule - encountered a "["" before previous bracket was closed', lineNumber);
+					if (incellrow) {
+						logError('Error, malformed cell rule - encountered a "[" before previous bracket was closed', lineNumber);
 					}
 					incellrow = true;
 					curcell = [];
 					curobj = new CellObject();
 				} else if (reg_directions_only.exec(token)) {
-					if (curobj.hasDirection()) {
-						logError("Error, an item can only have one direction/action at a time, but you're looking for several at once!", lineNumber);
-					} else if (!incellrow) {
+					if (!incellrow) {
 						logWarning("Invalid syntax. Directions should be placed at the start of a rule.", lineNumber);
+					} else if (curobj.hasDirection()) {
+						logError("Error, an item can only have one direction/action at a time, but you're looking for several at once!", lineNumber);
   					} else {
 						curobj.direction = token;
 					}
@@ -742,34 +742,40 @@ function processRuleString(rule, state, curRules)
 					curobj.modifier = token;
 				    }
 				} else if (token == '|') {
-					if (!curobj.isEmpty()) {
+					if (!incellrow) {
+						logWarning('Invalid syntax.  "|" should only be used in cell rows (square brackets).');
+					} else if (!curobj.isEmpty()) {
 						logError('In a rule, if you specify a force (or modifier), it has to act on an object.', lineNumber);
 					} else {
 						curcellrow.push(curcell);
 						curcell = [];
 					}
 				} else if (token === ']') {
-					if (!curobj.isEmpty()) {
-						logError('In a rule, if you specify a force (or modifier), it has to act on an object.', lineNumber);
-					} else if (curcell.length > 0 && curcell[0].object === '...') {
-						logError('Cannot end a rule with ellipses.', lineNumber);
+					if (!incellrow) {
+						logWarning('You have a "]" in a rule with no corresponding "[".  This does not make sense.', lineNumber);
 					} else {
-						curcellrow.push(curcell);
-						curcell = [];
-					}
+						if (!curobj.isEmpty()) {
+							logError('In a rule, if you specify a force (or modifier), it has to act on an object.', lineNumber);
+						} else if (curcell.length > 0 && curcell[0].object === '...') {
+							logError('Cannot end a rule with ellipses.', lineNumber);
+						} else {
+							curcellrow.push(curcell);
+							curcell = [];
+						}
 
-					if (rhs) {
-						rhs_cells.push(curcellrow);
-					} else {
-						lhs_cells.push(curcellrow);
+						if (rhs) {
+							rhs_cells.push(curcellrow);
+						} else {
+							lhs_cells.push(curcellrow);
+						}
+						curcellrow = [];
+						incellrow = false;
 					}
-					curcellrow = [];
-					incellrow = false;
 				} else if (token === '->') {
-					if (rhs) {
-						logError('Error, you can only use "->" once in a rule; it\'s used to separate before and after states.', lineNumber);
-					} if (curcellrow.length > 0) {
+					if (incellrow) {
 						logError('Encountered an unexpected "->" inside square brackets.  It\'s used to separate states, it has no place inside them >:| .', lineNumber);
+					} else if (rhs) {
+						logError('Error, you can only use "->" once in a rule; it\'s used to separate before and after states.', lineNumber);
 					} else {
 						rhs = true;
 					}
@@ -810,6 +816,10 @@ function processRuleString(rule, state, curRules)
 			}
 
 		}
+	}
+
+	if (incellrow) {
+		logError('The line ended in the middle of a cell.  You probably forgot a "]".', lineNumber);
 	}
 
 	if (lhs_cells.length != rhs_cells.length) {
