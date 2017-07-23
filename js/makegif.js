@@ -28,6 +28,15 @@ function makeGIF() {
 	redraw();
 	gifctx.drawImage(canvas,-xoffset,-yoffset);
   	encoder.addFrame(gifctx);
+
+	while (againing) {
+		processInput(-1);
+		redraw();
+		encoder.setDelay(againinterval);
+		gifctx.drawImage(canvas,-xoffset,-yoffset);
+		encoder.addFrame(gifctx);
+	}
+
 	var autotimer=0;
 
   	for(var i=0;i<inputDat.length;i++) {
