@@ -47,6 +47,14 @@ function makeGIF(useTransIn) {
         }
 
 	addNextFrame();
+
+	while (againing) {
+		processInput(-1);
+		gifRedraw();
+		encoder.setDelay(againinterval);
+		addNextFrame();
+	}
+
 	var autotimer=0;
 
   	for(var i=0;i<inputDat.length;i++) {
