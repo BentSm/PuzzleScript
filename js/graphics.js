@@ -413,10 +413,11 @@ function canvasResize() {
     xoffset = xoffset|0;
     yoffset = yoffset|0;
 
+    gifDataResize();
+
     if (oldcellwidth!=cellwidth||oldcellheight!=cellheight||oldtextmode!=textMode||oldfgcolor!=state.fgcolor||forceRegenImages){
     	forceRegenImages=false;
-        forceRegenGIFImages=true;
-        gifDataResize();
+	gifRegenAllImages();
     	regenSpriteImages();
     }
 

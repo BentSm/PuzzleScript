@@ -96,6 +96,13 @@ var gifScale;
 var trueGIFWidth;
 var trueGIFHeight;
 
+function gifRegenAllImages() {
+    gifResetColorTables();
+    gifRegenText();
+    gifRegenSpriteImages();
+    forceRegenGIFImages = false;
+}
+
 function gifDataResize() {
     if (gifData === undefined) {
         gifData = Array(0);
@@ -118,13 +125,6 @@ function gifDataResize() {
 
     trueGIFWidth = gifDataWidth * gifScale;
     trueGIFHeight = gifDataHeight * gifScale;
-
-    if (forceRegenGIFImages) {
-        gifResetColorTables();
-        gifRegenText();
-        gifRegenSpriteImages();
-        forceRegenGIFImages = false;
-    }
 }
 
 function gifDataToImageData(storeTo) {
@@ -290,12 +290,16 @@ function gifRedraw() {
         return;
     }
 
+    if (gifData === undefined) {
+	gifDataResize();
+    }
+
     if (gifColorTab === undefined) {
         forceRegenGIFImages = true;
     }
 
     if (forceRegenGIFImages) {
-        gifDataResize();
+	gifRegenAllImages();
     }
 
     if (textMode) {
