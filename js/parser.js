@@ -351,7 +351,7 @@ var codeMirrorFn = function() {
                 }
 
                 //MATCH SECTION NAME
-                if (stream.match(reg_sectionNames, true)) {
+                if (sol && stream.match(reg_sectionNames, true)) {
                     state.section = stream.string.slice(0, stream.pos).trim();
                     if (state.visitedSections.indexOf(state.section) >= 0) {
                         logError('cannot duplicate sections (you tried to duplicate \"' + state.section.toUpperCase() + '").', state.lineNumber);
@@ -430,10 +430,6 @@ var codeMirrorFn = function() {
                         }
                     }
                     return 'HEADER';
-                } else {
-                    if (state.section === undefined) {
-                        logError('must start with section "OBJECTS"', state.lineNumber);
-                    }
                 }
 
                 if (stream.eol()) {
