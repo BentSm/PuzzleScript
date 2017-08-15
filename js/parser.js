@@ -430,10 +430,6 @@ var codeMirrorFn = function() {
                         }
                     }
                     return 'HEADER';
-                } else {
-                    if (state.section === undefined) {
-                        logError('must start with section "OBJECTS"', state.lineNumber);
-                    }
                 }
 
                 if (stream.eol()) {
